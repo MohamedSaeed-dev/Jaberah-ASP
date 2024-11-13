@@ -1,0 +1,25 @@
+# Build Folders
+bin/
+obj/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+
+# Configuration files
+appsettings.json
+appsettings.Development.json
+
+# HTTP file
+*.http
+
+# Entity Framework Migrations
+Migrations/
+
+# Logs
+*.log
+
+# Visual Studio specific
+.vscode/
+.vs/
