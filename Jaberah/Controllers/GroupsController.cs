@@ -7,6 +7,7 @@ using Jaberah.Models.ViewModels.Groups;
 using Jaberah.Validations.Groups;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Group = Jaberah.Models.JaberahModels.Group;
 
 namespace Jaberah.Controllers
 {
@@ -80,6 +81,7 @@ namespace Jaberah.Controllers
         [HttpGet("{teacherId}/has-no-teacher-or-has-teacher")]
         public async Task<IActionResult> GetGroupsWithNoTeacherAndTeacherGroups([FromRoute] int teacherId)
         {
+            if (teacherId.Equals(default)) return BadRequest(new { message = "ادخل id صحيح" });
             var groups = await _db.Groups
                     .Where(g => g.TeacherId == teacherId || !g.TeacherId.HasValue)
                     .Select(g => new { g.Id, g.GroupName })
@@ -108,6 +110,7 @@ namespace Jaberah.Controllers
         [HttpPut("{groupId}")]
         public async Task<IActionResult> UpdateGroup([FromRoute] int groupId, [FromBody] UpdateGroupDTO model)
         {
+            if (groupId.Equals(default)) return BadRequest(new { message = "ادخل id صحيح" });
             var group = await _db.Groups.FindAsync(groupId);
             if (group is null)
                 return NotFound(new { message = "لاتوجد حلقة" });
@@ -124,6 +127,7 @@ namespace Jaberah.Controllers
         [HttpDelete("{groupId}")]
         public async Task<IActionResult> DeleteGroup([FromRoute] int groupId)
         {
+            if (groupId.Equals(default)) return BadRequest(new { message = "ادخل id صحيح" });
             var group = await _db.Groups.FindAsync(groupId);
             if (group is null)
                 return NotFound(new { message = "لاتوجد حلقة" });
