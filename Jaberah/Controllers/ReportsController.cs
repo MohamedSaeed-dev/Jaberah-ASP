@@ -1,5 +1,4 @@
-﻿using AutoMapper;
-using Jaberah.Models.MyDbContext;
+﻿using Jaberah.Models.MyDbContext;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,11 +9,9 @@ namespace Jaberah.Controllers
     public class ReportsController : ControllerBase
     {
         private readonly JaberahDBContext _db;
-        private readonly IMapper _mapper;
-        public ReportsController(JaberahDBContext db, IMapper mapper)
+        public ReportsController(JaberahDBContext db)
         {
             _db = db;
-            _mapper = mapper;
         }
         [HttpGet("semester-report")]
         public async Task<IActionResult> GetSemesterReport([FromQuery] int groupId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)

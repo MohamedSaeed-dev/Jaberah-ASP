@@ -11,6 +11,9 @@ namespace Jaberah.Helpers
             CreateMap<Group, AddGroupDTO>()
                 .ForMember(x => x.GroupName, y => y.MapFrom(z => z.GroupName))
                 .ForMember(x => x.Period, y => y.MapFrom(z => z.Period)).ReverseMap();
+
+            CreateMap<Notification, NotificationsDTO>()
+                .ForMember(x => x.Message, y => y.MapFrom(z => z.Message)).ReverseMap();
         }
     }
 }
