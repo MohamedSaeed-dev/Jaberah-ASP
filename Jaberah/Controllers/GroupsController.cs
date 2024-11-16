@@ -31,7 +31,7 @@ namespace Jaberah.Controllers
                     x.GroupName,
                     x.Period,
                     x.Teacher.TeacherName,
-                    StudnetsCount = x.Students.Count,
+                    StudentsCount = x.Students.Count,
                 }).AsQueryable();
 
             var pagedGroups = (await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
@@ -40,9 +40,9 @@ namespace Jaberah.Controllers
                                 GroupName = x.GroupName,
                                 Period = GetPeriodName((byte)x.Period),
                                 TeacherName = x.TeacherName,
-                                StudentsNo = x.StudnetsCount
+                                StudentsNo = x.StudentsCount
                             })
-                            .ToPagedList(query.Count(), pageNumber, pageSize);
+                            .ToPagedList(await query.CountAsync(), pageNumber, pageSize);
 
             return Ok(pagedGroups);
         }
@@ -89,7 +89,7 @@ namespace Jaberah.Controllers
 
             return Ok(groups);
         }
-        [AddGroupValidation]
+        [AddGroup]
         [HttpPost]
         public async Task<IActionResult> AddGroup([FromBody] AddGroupDTO model)
         {

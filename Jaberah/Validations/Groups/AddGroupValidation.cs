@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 namespace Jaberah.Validations.Groups
 {
     [AttributeUsage(AttributeTargets.Method)]
-    public class AddGroupValidationAttribute : ActionFilterAttribute
+    public class AddGroupAttribute : ActionFilterAttribute
     {
 
         public override void OnActionExecuting(ActionExecutingContext context)

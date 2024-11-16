@@ -1,6 +1,8 @@
 ﻿using AutoMapper;
 using Jaberah.Models.DTOs;
 using Jaberah.Models.JaberahModels;
+using static Jaberah.Models.DTOs.Students;
+using static Jaberah.Models.DTOs.Teachers;
 
 namespace Jaberah.Helpers
 {
@@ -8,12 +10,16 @@ namespace Jaberah.Helpers
     {
         public AutoMapper()
         {
-            CreateMap<Group, AddGroupDTO>()
-                .ForMember(x => x.GroupName, y => y.MapFrom(z => z.GroupName))
-                .ForMember(x => x.Period, y => y.MapFrom(z => z.Period)).ReverseMap();
+            CreateMap<Group, AddGroupDTO>().ReverseMap();
 
-            CreateMap<Notification, NotificationsDTO>()
-                .ForMember(x => x.Message, y => y.MapFrom(z => z.Message)).ReverseMap();
+            CreateMap<Teacher, AddTeacherDTO>()
+                .ForMember(x => x.GroupsId, y => y.Ignore())
+                .ReverseMap();
+
+            CreateMap<Student, AddStudentDTO>()
+                .ReverseMap();
+
+            CreateMap<Notification, NotificationsDTO>().ReverseMap();
         }
     }
 }
