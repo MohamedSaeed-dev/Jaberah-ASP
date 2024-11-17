@@ -1,4 +1,5 @@
 ﻿using Jaberah.Helpers;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using static Jaberah.Models.DTOs.Students;
 
@@ -42,6 +43,14 @@ namespace Jaberah.Validations.Students
                     });
                 }
 
+            }
+            if (validationContent.Count > 0)
+            {
+                context.HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+                context.Result = new JsonResult(new
+                {
+                    validationContent,
+                });
             }
             base.OnActionExecuting(context);
         }

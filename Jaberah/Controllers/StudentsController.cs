@@ -3,6 +3,7 @@ using Jaberah.Helpers;
 using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
 using Jaberah.Models.ViewModels.Students;
+using Jaberah.Validations.Students;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using static Jaberah.Models.DTOs.Students;
@@ -60,6 +61,7 @@ namespace Jaberah.Controllers
 
             return Ok(pagedStudents);
         }
+        [AddStudent]
         [HttpPost]
         public async Task<IActionResult> AddStudent([FromBody] AddStudentDTO model)
         {
@@ -86,6 +88,7 @@ namespace Jaberah.Controllers
 
             return StatusCode(201, new { message = "تم اضافة الطالب بنجاح" });
         }
+        [UpdateStudent]
         [HttpPut("{studentId}")]
         public async Task<IActionResult> UpdateStudent(int studentId, [FromBody] UpdateStudentDTO model)
         {

@@ -54,11 +54,15 @@ namespace Jaberah.Controllers
             if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
                 return BadRequest(new { message = "لاتوجد حلقة" });
 
+            if (year <= 0 || month <= 0)
+            {
+                return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
+            }
+
             HijriCalendar hijriCalendar = new HijriCalendar();
             DateTime fromDate = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
 
             int daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
-            Console.WriteLine(daysInMonth);
             DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
 
             var grouped = await _db.FollowStudentsInMonth
@@ -144,7 +148,6 @@ namespace Jaberah.Controllers
             DateTime fromDate = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
 
             int daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
-            Console.WriteLine(daysInMonth);
             DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
 
             var grouped = await _db.FollowStudentsInMonth
@@ -224,11 +227,15 @@ namespace Jaberah.Controllers
             if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
                 return BadRequest(new { message = "لاتوجد حلقة" });
 
+            if (year <= 0 || month <= 0)
+            {
+                return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
+            }
+
             HijriCalendar hijriCalendar = new HijriCalendar();
             DateTime fromDate = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
 
             int daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
-            Console.WriteLine(daysInMonth);
             DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
 
             var grouped = await _db.FollowStudentsInMonth

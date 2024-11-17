@@ -2,6 +2,7 @@ using Jaberah.Models.MyDbContext;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -37,6 +38,38 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddAuthorization();
+
+builder.Services.AddSwaggerGen(sw =>
+{
+    sw.SwaggerDoc("v1", new OpenApiInfo { Title = "Jaberah API", Version = "V1" });
+    sw.EnableAnnotations();
+    sw.OrderActionsBy(a => a.GroupName);
+    sw.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme()
+    {
+        Name = "authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter 'bearer' [space] and then your token in the text box below.\r\n\r\nExample: \"bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9......\"",
+
+    });
+    sw.AddSecurityRequirement(new OpenApiSecurityRequirement
+      {
+         {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+         }
+      });
+});
+
 
 var app = builder.Build();
 

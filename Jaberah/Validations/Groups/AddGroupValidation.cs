@@ -67,10 +67,10 @@ namespace Jaberah.Validations.Groups
                 context.HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
                 context.Result = new JsonResult(new
                 {
-                    Data = validationContent,
-                    Code = 400
+                    validationContent,
                 });
             }
+            base.OnActionExecuting(context);
         }
     }
 }

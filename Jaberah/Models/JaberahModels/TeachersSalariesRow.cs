@@ -6,7 +6,6 @@
         public int TeacherId { get; set; }
         public Teacher Teacher { get; set; }
         public int? DaysAbsence { get; set; }
-        public int? HoursAbsence { get; set; }
         public float Salary { get; set; }
         public float NetSalary { get; set; }
         public bool Signature { get; set; }

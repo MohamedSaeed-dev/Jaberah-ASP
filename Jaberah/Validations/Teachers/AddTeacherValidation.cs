@@ -1,4 +1,5 @@
 ﻿using Jaberah.Helpers;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using static Jaberah.Models.DTOs.Teachers;
 
@@ -66,6 +67,36 @@ namespace Jaberah.Validations.Teachers
                     });
                 }
 
+            }
+            else
+                validationContent.AddRange
+                (
+                    new List<ValidationModel>()
+                    {
+                        new()
+                        {
+                            Key = "اسم المعلم",
+                            Message = "اسم المعلم اجباري"
+                        },
+                        new ()
+                        {
+                            Key = "رقم الجوال",
+                            Message = "رقم الجوال اجباري"
+                        },
+                        new ()
+                        {
+                            Key = "الحلقات",
+                            Message = "الحلقات اجبارية"
+                        }
+                    }
+                );
+            if (validationContent.Count > 0)
+            {
+                context.HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+                context.Result = new JsonResult(new
+                {
+                    validationContent,
+                });
             }
             base.OnActionExecuting(context);
         }

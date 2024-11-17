@@ -1,57 +1,56 @@
-﻿using Jaberah.Helpers;
-using Jaberah.Models.DTOs;
-using Jaberah.Models.JaberahModels;
+﻿using Jaberah.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace Jaberah.Validations.Groups
+namespace Jaberah.Validations.TeachersSalaries
 {
     [AttributeUsage(AttributeTargets.Method)]
-    public class UpdateGroupValidationAttribute : ActionFilterAttribute
+    public class UpsertTeachersSalariesAttribute : ActionFilterAttribute
     {
-
         public override void OnActionExecuting(ActionExecutingContext context)
         {
             List<ValidationModel> validationContent = new();
 
-
             if (context.ActionArguments.ContainsKey("model"))
             {
-                UpdateGroupDTO dto = (UpdateGroupDTO)context.ActionArguments["model"]!;
-
-                if (!string.IsNullOrWhiteSpace(dto.GroupName) && !dto.GroupName.ContainsArabicAndSpaces())
+                UpsertTeachersSalariesDTO dto = (UpsertTeachersSalariesDTO)context.ActionArguments["model"]!;
+                if (dto.TeacherId <= 0)
                 {
                     validationContent.Add(new ValidationModel
                     {
-                        Key = "اسم الحلقة",
-                        Message = "اسم الحلقة يجب ان يحتوي على احرف عربية فقط"
+                        Key = "المعلم",
+                        Message = "المعلم اجباري"
                     });
                 }
 
-                if (dto.Period.HasValue && !Enum.IsDefined(typeof(Period), dto.Period.Value))
+                if (dto.Salary.HasValue && dto.Salary.Value < 0)
                 {
                     validationContent.Add(new ValidationModel
                     {
-                        Key = "الفترة",
-                        Message = $"الفترة يجب ان تكون 0 (مسائية) او 1 (صباحية)"
+                        Key = "الراتب",
+                        Message = "الراتب يجب ان يكون اكبر من صفر"
                     });
                 }
+                else if (dto.DaysAbsence.HasValue && dto.DaysAbsence.Value < 0)
+                {
+                    validationContent.Add(new ValidationModel
+                    {
+                        Key = "ايام الغياب",
+                        Message = "ايام الغياب يجب ان تكون اكبر من صفر"
+                    });
+                }
+
             }
             else
                 validationContent.AddRange
                 (
                     new List<ValidationModel>()
                     {
-                        new ()
+                        new()
                         {
-                            Key = "اسم الحلقة",
-                            Message = "اسم الحلقة اجباري"
+                            Key = "المعلم",
+                            Message = "المعلم اجباري"
                         },
-                        new ()
-                        {
-                            Key = "الفترة",
-                            Message = "الفترة اجبارية"
-                        }
                     }
                 );
             if (validationContent.Count > 0)
