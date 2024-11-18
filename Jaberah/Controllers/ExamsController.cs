@@ -1,0 +1,48 @@
+﻿using AutoMapper;
+using Jaberah.Models.DTOs;
+using Jaberah.Models.JaberahModels;
+using Jaberah.Models.MyDbContext;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace Jaberah.Controllers
+{
+    [Route("api/exams")]
+    [ApiController]
+    public class ExamsController : ControllerBase
+    {
+        private readonly JaberahDBContext _db;
+        private readonly IMapper _mapper;
+        public ExamsController(JaberahDBContext db, IMapper mapper)
+        {
+            _db = db;
+            _mapper = mapper;
+        }
+        [HttpPost("monthly-exam")]
+        public async Task<IActionResult> UpsertMonthlyExams([FromRoute] int followStudentId, [FromBody] UpsertMonthlyExamsDTO model)
+        {
+            if (!await _db.FollowStudentsInMonth.AnyAsync(x => x.Id == followStudentId))
+            {
+                return BadRequest(new { message = "لايوجد متابعة الطالب" });
+            }
+            var exam = await _db.Exams.FirstOrDefaultAsync(x => x.FollowStudentInMonthId == followStudentId);
+
+            if (exam is not null) // update
+            {
+                exam.OralExam = model.OralExam ?? exam.OralExam;
+                exam.PaperExam = model.PaperExam ?? exam.PaperExam;
+                _db.Exams.Update(exam);
+            }
+            else // insert
+            {
+                model.PaperExam = model.PaperExam ?? 0;
+                model.OralExam = model.OralExam ?? 0;
+                var newExam = _mapper.Map<Exam>(model);
+                newExam.FollowStudentInMonthId = followStudentId;
+                await _db.Exams.AddAsync(newExam);
+            }
+            await _db.SaveChangesAsync();
+            return Ok(new { message = "تم تحديث الاختبار الشهري بنجاح" });
+        }
+    }
+}

@@ -19,6 +19,9 @@ namespace Jaberah.Helpers
             CreateMap<Student, AddStudentDTO>()
                 .ReverseMap();
 
+            CreateMap<Exam, UpsertMonthlyExamsDTO>()
+                .ReverseMap();
+
             CreateMap<Notification, NotificationsDTO>().ReverseMap();
         }
     }
