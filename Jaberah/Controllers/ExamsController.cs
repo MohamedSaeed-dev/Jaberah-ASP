@@ -19,7 +19,7 @@ namespace Jaberah.Controllers
             _mapper = mapper;
         }
         [HttpPost("monthly-exam")]
-        public async Task<IActionResult> UpsertMonthlyExams([FromRoute] int followStudentId, [FromBody] UpsertMonthlyExamsDTO model)
+        public async Task<IActionResult> UpsertMonthlyExams([FromQuery] int followStudentId, [FromBody] UpsertMonthlyExamsDTO model)
         {
             if (!await _db.FollowStudentsInMonth.AnyAsync(x => x.Id == followStudentId))
             {

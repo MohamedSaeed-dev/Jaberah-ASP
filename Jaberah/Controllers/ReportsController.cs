@@ -20,8 +20,14 @@ namespace Jaberah.Controllers
             if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
                 return BadRequest(new { message = "لاتوجد حلقة" });
 
+            HijriCalendar hijriCalendar = new HijriCalendar();
+            DateTime fromGreg = hijriCalendar.ToDateTime(fromDate.Year, fromDate.Month, 1, 0, 0, 0, 0);
+
+            int daysInMonth = hijriCalendar.GetDaysInMonth(toDate.Year, toDate.Month);
+            DateTime toGreg = hijriCalendar.ToDateTime(toDate.Year, toDate.Month, daysInMonth, 23, 59, 59, 0);
+
             var grouped = await _db.FollowStudentsInMonth
-                .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
+                .Where(x => x.Student.GroupId == groupId && x.Date >= fromGreg && x.Date <= toGreg)
                 .GroupBy(x => x.Student.StudentName)
                 .Select(g => new
                 {
@@ -42,7 +48,7 @@ namespace Jaberah.Controllers
                 GradeSum = Math.Min(x.FollowRowCount * 0.5, 10.0),
                 OralGradeSum = x.OralGradeSum,
                 PaperGradeSum = x.PaperGradeSum,
-                Total = (x.AttendanceSum + x.BehaviorSum + x.OralGradeSum + x.PaperGradeSum + Math.Min(x.FollowRowCount * 0.5, 10.0) * 100) / 400
+                Total = ((x.AttendanceSum + x.BehaviorSum + x.OralGradeSum + x.PaperGradeSum + Math.Min(x.FollowRowCount * 0.5, 10.0)) * 100) / 400
             }).ToList();
 
             return Ok(result);
@@ -66,33 +72,38 @@ namespace Jaberah.Controllers
             DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
 
             var grouped = await _db.FollowStudentsInMonth
-                .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
-                .Select(x => new
-                {
-                    x.Student.StudentName,
-                    Save = x.FollowStudentInMonthRows.Select(y => new
-                    {
-                        FromSurah = y.WithTeacher.From.SurahName,
-                        FromVerse = y.WithTeacher.From.Verse,
-                        ToSuarh = y.WithTeacher.To.SurahName,
-                        ToVerse = y.WithTeacher.To.Verse,
-                        y.WithTeacher.Pages,
-                        y.WithTeacher.Rate
-                    }),
-                    Review = x.FollowStudentInMonthRows.Select(y => new
-                    {
-                        FromSurah = y.WithFriend.From.SurahName,
-                        FromVerse = y.WithFriend.From.Verse,
-                        ToSuarh = y.WithFriend.To.SurahName,
-                        ToVerse = y.WithFriend.To.Verse,
-                        y.WithFriend.Pages,
-                        y.WithFriend.Rate
-                    }),
-                    Attendance = x.FollowStudentInMonthRows.Sum(y => y.Attendance),
-                    Behavior = x.FollowStudentInMonthRows.Sum(y => y.Behavior),
-                    x.Exams.OralExam,
-                    x.Exams.PaperExam,
-                }).ToListAsync();
+    .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
+    .Select(x => new
+    {
+        x.Student.StudentName,
+        Save = x.FollowStudentInMonthRows
+            .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
+            .Select(y => new
+            {
+                FromSurah = y.WithTeacher.From.SurahName,
+                FromVerse = y.WithTeacher.From.Verse,
+                ToSurah = y.WithTeacher.To.SurahName,
+                ToVerse = y.WithTeacher.To.Verse,
+                y.WithTeacher.Pages,
+                y.WithTeacher.Rate
+            }),
+        Review = x.FollowStudentInMonthRows
+            .Where(y => y.WithFriend != null && y.WithFriend.From != null && y.WithFriend.To != null)
+            .Select(y => new
+            {
+                FromSurah = y.WithFriend.From.SurahName,
+                FromVerse = y.WithFriend.From.Verse,
+                ToSurah = y.WithFriend.To.SurahName,
+                ToVerse = y.WithFriend.To.Verse,
+                y.WithFriend.Pages,
+                y.WithFriend.Rate
+            }),
+        Attendance = x.FollowStudentInMonthRows.Sum(y => (float?)y.Attendance) ?? 0,
+        Behavior = x.FollowStudentInMonthRows.Sum(y => (float?)y.Behavior) ?? 0,
+        OralExam = x.Exams != null ? x.Exams.OralExam : 0,
+        PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
+    })
+    .ToListAsync();
 
             var result = grouped.Select(x => new MonthlyReportViewModel
             {
@@ -131,7 +142,7 @@ namespace Jaberah.Controllers
                 BehaviorGrade = x.Behavior,
                 OralGrade = x.OralExam,
                 PaperGrade = x.PaperExam,
-                Total = (x.Attendance + x.Behavior + x.OralExam + x.PaperExam * 100) / 100
+                Total = ((x.Attendance + x.Behavior + x.OralExam + x.PaperExam) * 100) / 100
 
             });
             return Ok(result);
@@ -216,7 +227,7 @@ namespace Jaberah.Controllers
                 BehaviorGrade = x.Behavior,
                 OralGrade = x.OralExam,
                 PaperGrade = x.PaperExam,
-                Total = (x.Attendance + x.Behavior + x.OralExam + x.PaperExam * 100) / 100
+                Total = ((x.Attendance + x.Behavior + x.OralExam + x.PaperExam * 100)) / 100
 
             }).OrderByDescending(x => x.Total);
             return Ok(result);
@@ -304,7 +315,7 @@ namespace Jaberah.Controllers
                 BehaviorGrade = x.Behavior,
                 OralGrade = x.OralExam,
                 PaperGrade = x.PaperExam,
-                Total = (x.Attendance + x.Behavior + x.OralExam + x.PaperExam * 100) / 100
+                Total = ((x.Attendance + x.Behavior + x.OralExam + x.PaperExam * 100)) / 100
 
             }).OrderByDescending(x => x.Total);
             return Ok(result);
@@ -320,6 +331,7 @@ namespace Jaberah.Controllers
             public double BehaviorSum { get; set; }
             public double OralGradeSum { get; set; }
             public double PaperGradeSum { get; set; }
+            public double MidFinalGrade { get; set; }
             public double Total { get; set; }
         }
 
