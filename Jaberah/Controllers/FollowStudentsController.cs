@@ -30,7 +30,7 @@ namespace Jaberah.Controllers
             }
             HijriCalendar hijriCalendar = new HijriCalendar();
             DateTime parsedDate = hijriCalendar.ToDateTime(date.Year, date.Month, date.Day, 0, 0, 0, 0);
-            var followStudentQuery = await _db.FollowStudentsInMonth.Where(x => x.StudentId == studentId && parsedDate == x.Date).SelectMany(y => y.FollowStudentInMonthRows
+            var followStudentQuery = await _db.FollowStudentsInMonth.AsNoTracking().Where(x => x.StudentId == studentId && parsedDate == x.Date).SelectMany(y => y.FollowStudentInMonthRows
                 .Select(x => new GetFollowStudentForDay
                 {
                     StudentName = y.Student.StudentName,
@@ -56,7 +56,7 @@ namespace Jaberah.Controllers
             {
                 return Ok(new GetFollowStudentForDay
                 {
-                    StudentName = (await _db.Students.Where(x => x.Id == studentId).Select(x => x.StudentName).FirstOrDefaultAsync()) ?? "",
+                    StudentName = (await _db.Students.AsNoTracking().Where(x => x.Id == studentId).Select(x => x.StudentName).FirstOrDefaultAsync()) ?? "",
                     Attendance = 0,
                     Behavior = 0,
 
@@ -98,7 +98,7 @@ namespace Jaberah.Controllers
             int daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
             DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
 
-            var followStudentData = await _db.FollowStudentsInMonth
+            var followStudentData = await _db.FollowStudentsInMonth.AsNoTracking()
                 .Where(x => x.StudentId == studentId && x.Date >= fromDate && x.Date <= toDate)
                 .SelectMany(x => x.FollowStudentInMonthRows.Select(row => new GetFollowStudentForMonth
                 {
@@ -166,13 +166,13 @@ namespace Jaberah.Controllers
             HijriCalendar hijriCalendar = new HijriCalendar();
             DateTime parsedDate = hijriCalendar.ToDateTime(date.Year, date.Month, date.Day, 0, 0, 0, 0);
 
-            var followStudents = await _db.Students
+            var followStudents = await _db.Students.AsNoTracking()
                 .Where(student => student.GroupId == groupId)
                 .Select(student => new
                 {
                     student.Id,
                     student.StudentName,
-                    FollowDetails = _db.FollowStudentsInMonth
+                    FollowDetails = _db.FollowStudentsInMonth.AsNoTracking()
                         .Where(f => f.StudentId == student.Id && f.Date == parsedDate)
                         .SelectMany(f => f.FollowStudentInMonthRows.Select(row => new GetFollowStudentForDay
                         {

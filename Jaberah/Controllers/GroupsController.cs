@@ -25,7 +25,7 @@ namespace Jaberah.Controllers
         [HttpGet]
         public async Task<IActionResult> GetGroups([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var query = _db.Groups
+            var query = _db.Groups.AsNoTracking()
                 .Select(x => new
                 {
                     x.GroupName,
@@ -54,7 +54,7 @@ namespace Jaberah.Controllers
             {
                 return BadRequest(new { message = "لاتوجد حلقة" });
             }
-            var query = await _db.Groups.Where(x => x.Id == groupId)
+            var query = await _db.Groups.AsNoTracking().Where(x => x.Id == groupId)
                 .Select(x => new
                 {
                     x.GroupName,
@@ -72,15 +72,15 @@ namespace Jaberah.Controllers
                 StudentsNo = query.StudentCount
             });
         }
-        [HttpGet("teacher/{teacherId}")]
+        [HttpGet("teachers/{teacherId}")]
         public async Task<IActionResult> GetGroupOfTeacher([FromRoute] int teacherId)
         {
             if (teacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
-            if (!await _db.Teachers.AllAsync(x => x.Id == teacherId))
+            if (!await _db.Teachers.AnyAsync(x => x.Id == teacherId))
             {
                 return BadRequest(new { message = "لايوجد معلم" });
             }
-            var query = await _db.Groups.Where(x => x.TeacherId == teacherId)
+            var query = await _db.Groups.AsNoTracking().Where(x => x.TeacherId == teacherId)
                 .Select(x => new
                 {
                     x.GroupName,
@@ -99,14 +99,14 @@ namespace Jaberah.Controllers
         [HttpGet("has-no-teacher-data")]
         public async Task<IActionResult> GetGroupsWithNoTeacher()
         {
-            var groups = await _db.Groups
+            var groups = await _db.Groups.AsNoTracking()
             .Where(g => !g.TeacherId.HasValue)
             .Select(g => new { g.Id, g.GroupName })
             .ToListAsync();
 
             return Ok(groups);
         }
-        [HttpGet("{teacherId}/has-no-teacher-or-has-teacher")]
+        [HttpGet("teachers/{teacherId}/has-no-teacher-or-has-teacher")]
         public async Task<IActionResult> GetGroupsWithNoTeacherAndTeacherGroups([FromRoute] int teacherId)
         {
             if (teacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
@@ -114,7 +114,7 @@ namespace Jaberah.Controllers
             {
                 return BadRequest(new { message = "لايوجد معلم" });
             }
-            var groups = await _db.Groups
+            var groups = await _db.Groups.AsNoTracking()
                     .Where(g => g.TeacherId == teacherId || !g.TeacherId.HasValue)
                     .Select(g => new { g.Id, g.GroupName })
                     .ToListAsync();

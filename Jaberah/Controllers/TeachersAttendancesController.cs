@@ -29,7 +29,7 @@ namespace Jaberah.Controllers
             HijriCalendar hijriCalendar = new HijriCalendar();
             DateTime date = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
 
-            var attendancesQuery = _db.TeacherAttendances.Where(x => x.Date == date)
+            var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date == date)
                 .SelectMany(x => x.TeachersAttendancesRows)
                 .GroupBy(x => x.Teacher.TeacherName)
                 .Select(x => new GetTeachersAttendancesReportForMonth
@@ -79,7 +79,7 @@ namespace Jaberah.Controllers
             HijriCalendar hijriCalendar = new HijriCalendar();
             DateTime parsedDate = hijriCalendar.ToDateTime(date.Year, date.Month, date.Day, 0, 0, 0, 0);
 
-            var attendancesQuery = _db.TeacherAttendances.Where(x => x.Date == date).SelectMany(x => x.TeachersAttendancesRows)
+            var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date == date).SelectMany(x => x.TeachersAttendancesRows)
                 .Select(x => new GetTeachersAttendancesReportForDay
                 {
                     TeacherName = x.Teacher.TeacherName,
@@ -190,7 +190,7 @@ namespace Jaberah.Controllers
             HijriCalendar hijriCalendar = new HijriCalendar();
             DateTime date = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
 
-            var attendancesQuery = _db.TeacherAttendances.Where(x => x.Date == date).SelectMany(x => x.TeachersAttendancesRows).Select(x => new
+            var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date == date).SelectMany(x => x.TeachersAttendancesRows).Select(x => new
             {
                 TeacherId = x.Id,
                 x.Teacher.TeacherName,

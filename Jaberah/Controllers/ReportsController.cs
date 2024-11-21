@@ -1,4 +1,5 @@
 ﻿using Jaberah.Models.MyDbContext;
+using Jaberah.Models.ViewModels.Reports;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
@@ -17,6 +18,7 @@ namespace Jaberah.Controllers
         [HttpGet("semester-report")]
         public async Task<IActionResult> GetSemesterReport([FromQuery] int groupId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
         {
+            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
             if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
                 return BadRequest(new { message = "لاتوجد حلقة" });
 
@@ -26,7 +28,7 @@ namespace Jaberah.Controllers
             int daysInMonth = hijriCalendar.GetDaysInMonth(toDate.Year, toDate.Month);
             DateTime toGreg = hijriCalendar.ToDateTime(toDate.Year, toDate.Month, daysInMonth, 23, 59, 59, 0);
 
-            var grouped = await _db.FollowStudentsInMonth
+            var grouped = await _db.FollowStudentsInMonth.AsNoTracking()
                 .Where(x => x.Student.GroupId == groupId && x.Date >= fromGreg && x.Date <= toGreg)
                 .GroupBy(x => x.Student.StudentName)
                 .Select(g => new
@@ -40,7 +42,7 @@ namespace Jaberah.Controllers
                 })
                 .ToListAsync();
 
-            var result = grouped.Select(x => new SemesterReportViewModel
+            var result = grouped.Select(x => new SemesterReportForView
             {
                 StudentName = x.StudentName,
                 AttendanceSum = x.AttendanceSum,
@@ -71,7 +73,7 @@ namespace Jaberah.Controllers
             int daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
             DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
 
-            var grouped = await _db.FollowStudentsInMonth
+            var grouped = await _db.FollowStudentsInMonth.AsNoTracking()
     .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
     .Select(x => new
     {
@@ -105,17 +107,17 @@ namespace Jaberah.Controllers
     })
     .ToListAsync();
 
-            var result = grouped.Select(x => new MonthlyReportViewModel
+            var result = grouped.Select(x => new MonthlyReportForView
             {
                 StudentName = x.StudentName,
                 SaveData = new SaveReviewData
                 {
-                    From = new FromTo
+                    From = new FromToData
                     {
                         SurahName = x.Save.FirstOrDefault()!.FromSurah,
                         Verse = x.Save.FirstOrDefault()!.FromVerse,
                     },
-                    To = new FromTo
+                    To = new FromToData
                     {
                         SurahName = x.Save.LastOrDefault()!.FromSurah,
                         Verse = x.Save.LastOrDefault()!.FromVerse,
@@ -125,12 +127,12 @@ namespace Jaberah.Controllers
                 },
                 ReviewData = new SaveReviewData
                 {
-                    From = new FromTo
+                    From = new FromToData
                     {
                         SurahName = x.Review.FirstOrDefault()!.FromSurah,
                         Verse = x.Review.FirstOrDefault()!.FromVerse,
                     },
-                    To = new FromTo
+                    To = new FromToData
                     {
                         SurahName = x.Review.LastOrDefault()!.FromSurah,
                         Verse = x.Review.LastOrDefault()!.FromVerse,
@@ -161,7 +163,7 @@ namespace Jaberah.Controllers
             int daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
             DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
 
-            var grouped = await _db.FollowStudentsInMonth
+            var grouped = await _db.FollowStudentsInMonth.AsNoTracking()
                 .Where(x => x.Date >= fromDate && x.Date <= toDate)
                 .Select(x => new
                 {
@@ -190,17 +192,17 @@ namespace Jaberah.Controllers
                     x.Exams.PaperExam,
                 }).Take(take).ToListAsync();
 
-            var result = grouped.Select(x => new MonthlyReportViewModel
+            var result = grouped.Select(x => new MonthlyReportForView
             {
                 StudentName = x.StudentName,
                 SaveData = new SaveReviewData
                 {
-                    From = new FromTo
+                    From = new FromToData
                     {
                         SurahName = x.Save.FirstOrDefault()!.FromSurah,
                         Verse = x.Save.FirstOrDefault()!.FromVerse,
                     },
-                    To = new FromTo
+                    To = new FromToData
                     {
                         SurahName = x.Save.LastOrDefault()!.FromSurah,
                         Verse = x.Save.LastOrDefault()!.FromVerse,
@@ -210,12 +212,12 @@ namespace Jaberah.Controllers
                 },
                 ReviewData = new SaveReviewData
                 {
-                    From = new FromTo
+                    From = new FromToData
                     {
                         SurahName = x.Review.FirstOrDefault()!.FromSurah,
                         Verse = x.Review.FirstOrDefault()!.FromVerse,
                     },
-                    To = new FromTo
+                    To = new FromToData
                     {
                         SurahName = x.Review.LastOrDefault()!.FromSurah,
                         Verse = x.Review.LastOrDefault()!.FromVerse,
@@ -249,7 +251,7 @@ namespace Jaberah.Controllers
             int daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
             DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
 
-            var grouped = await _db.FollowStudentsInMonth
+            var grouped = await _db.FollowStudentsInMonth.AsNoTracking()
                 .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
                 .Select(x => new
                 {
@@ -278,17 +280,17 @@ namespace Jaberah.Controllers
                     x.Exams.PaperExam,
                 }).Take(take).ToListAsync();
 
-            var result = grouped.Select(x => new MonthlyReportViewModel
+            var result = grouped.Select(x => new MonthlyReportForView
             {
                 StudentName = x.StudentName,
                 SaveData = new SaveReviewData
                 {
-                    From = new FromTo
+                    From = new FromToData
                     {
                         SurahName = x.Save.FirstOrDefault()!.FromSurah,
                         Verse = x.Save.FirstOrDefault()!.FromVerse,
                     },
-                    To = new FromTo
+                    To = new FromToData
                     {
                         SurahName = x.Save.LastOrDefault()!.FromSurah,
                         Verse = x.Save.LastOrDefault()!.FromVerse,
@@ -298,12 +300,12 @@ namespace Jaberah.Controllers
                 },
                 ReviewData = new SaveReviewData
                 {
-                    From = new FromTo
+                    From = new FromToData
                     {
                         SurahName = x.Review.FirstOrDefault()!.FromSurah,
                         Verse = x.Review.FirstOrDefault()!.FromVerse,
                     },
-                    To = new FromTo
+                    To = new FromToData
                     {
                         SurahName = x.Review.LastOrDefault()!.FromSurah,
                         Verse = x.Review.LastOrDefault()!.FromVerse,
@@ -319,45 +321,6 @@ namespace Jaberah.Controllers
 
             }).OrderByDescending(x => x.Total);
             return Ok(result);
-        }
-
-
-
-        class SemesterReportViewModel
-        {
-            public string StudentName { get; set; } = string.Empty;
-            public double GradeSum { get; set; }
-            public double AttendanceSum { get; set; }
-            public double BehaviorSum { get; set; }
-            public double OralGradeSum { get; set; }
-            public double PaperGradeSum { get; set; }
-            public double MidFinalGrade { get; set; }
-            public double Total { get; set; }
-        }
-
-        class MonthlyReportViewModel
-        {
-            public string StudentName { get; set; } = string.Empty;
-            public SaveReviewData SaveData { get; set; }
-            public SaveReviewData ReviewData { get; set; }
-            public double AttendanceGrade { get; set; }
-            public double BehaviorGrade { get; set; }
-            public double OralGrade { get; set; }
-            public double PaperGrade { get; set; }
-            public double Total { get; set; }
-        }
-
-        class SaveReviewData
-        {
-            public FromTo From { get; set; }
-            public FromTo To { get; set; }
-            public float Pages { get; set; }
-            public string Rate { get; set; } = string.Empty;
-        }
-        class FromTo
-        {
-            public string SurahName { get; set; } = string.Empty;
-            public int Verse { get; set; }
         }
     }
 

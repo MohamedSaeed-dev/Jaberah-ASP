@@ -24,7 +24,7 @@ namespace Jaberah.Controllers
         [HttpGet]
         public async Task<IActionResult> GetTeachers([FromQuery] string searchText = "", [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var query = _db.Teachers.Where(x => x.Role == Role.TEACHER && x.TeacherName.Contains(searchText))
+            var query = _db.Teachers.AsNoTracking().Where(x => x.Role == Role.TEACHER && x.TeacherName.Contains(searchText))
                 .Select(x => new GetTeachersForView
                 {
                     Id = x.Id,
@@ -109,10 +109,11 @@ namespace Jaberah.Controllers
                 }
                 else
                 {
-                    if (await _db.Teachers.AnyAsync(t => t.Groups.Any(g => model.GroupsId.Contains(g.Id))))
-                    {
-                        return BadRequest(new { message = "هناك معلمين مرتبطين بهذه الحلقات" });
-                    }
+                    //if (await _db.Teachers.AnyAsync(t => t.Groups.Any(g => model.GroupsId.Contains(g.Id))))
+                    //{
+                    //    return BadRequest(new { message = "هناك معلمين مرتبطين بهذه الحلقات" });
+                    //}
+
                 }
             }
 
@@ -136,6 +137,7 @@ namespace Jaberah.Controllers
                 var newGroups = await _db.Groups
                     .Where(g => model.GroupsId.Contains(g.Id))
                     .ToListAsync();
+
                 teacher.Groups = newGroups;
             }
 

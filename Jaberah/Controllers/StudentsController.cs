@@ -24,7 +24,7 @@ namespace Jaberah.Controllers
         [HttpGet]
         public async Task<IActionResult> GetStudents([FromQuery] string searchText = "", [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var query = _db.Students.Where(x => x.StudentName.Contains(searchText)).Select(x => new GetStudentsForView
+            var query = _db.Students.AsNoTracking().Where(x => x.StudentName.Contains(searchText)).Select(x => new GetStudentsForView
             {
                 Id = x.Id,
                 StudentName = x.StudentName,
@@ -41,7 +41,7 @@ namespace Jaberah.Controllers
 
             return Ok(pagedStudents);
         }
-        [HttpGet("{groupId}/students-for-group")]
+        [HttpGet("groups/{groupId}/students-for-group")]
         public async Task<IActionResult> GetStudentsForGroup([FromRoute] int groupId, [FromQuery] string searchText = "", [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
@@ -49,7 +49,7 @@ namespace Jaberah.Controllers
             {
                 return BadRequest(new { message = "لاتوجد حلقة" });
             }
-            var query = _db.Students.Where(x => (x.GroupId.HasValue && x.GroupId.Value == groupId) && x.StudentName.Contains(searchText))
+            var query = _db.Students.AsNoTracking().Where(x => (x.GroupId.HasValue && x.GroupId.Value == groupId) && x.StudentName.Contains(searchText))
                 .Select(x => new GetStudentsForGroupForView
                 {
                     Id = x.Id,

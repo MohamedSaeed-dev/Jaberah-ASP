@@ -23,7 +23,7 @@ namespace Jaberah.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDTO model)
         {
-            var teacher = await _db.Teachers
+            var teacher = await _db.Teachers.AsNoTracking()
                 .FirstOrDefaultAsync(t => t.TeacherName.Trim() == model.Username.Trim());
 
             if (teacher == null)

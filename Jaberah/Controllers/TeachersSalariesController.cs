@@ -29,7 +29,7 @@ namespace Jaberah.Controllers
             HijriCalendar hijriCalendar = new HijriCalendar();
             DateTime date = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
 
-            var salariesQuery = _db.TeacherSalaries
+            var salariesQuery = _db.TeacherSalaries.AsNoTracking()
                 .Where(x => x.Date == date)
                 .SelectMany(x => x.TeachersSalariesRows)
                 .Select(x => new
