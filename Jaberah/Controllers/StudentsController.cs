@@ -44,6 +44,11 @@ namespace Jaberah.Controllers
         [HttpGet("{groupId}/students-for-group")]
         public async Task<IActionResult> GetStudentsForGroup([FromRoute] int groupId, [FromQuery] string searchText = "", [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
+            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+            if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
+            {
+                return BadRequest(new { message = "لاتوجد حلقة" });
+            }
             var query = _db.Students.Where(x => (x.GroupId.HasValue && x.GroupId.Value == groupId) && x.StudentName.Contains(searchText))
                 .Select(x => new GetStudentsForGroupForView
                 {

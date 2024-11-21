@@ -49,7 +49,11 @@ namespace Jaberah.Controllers
         [HttpGet("{groupId}")]
         public async Task<IActionResult> GetGroup([FromRoute] int groupId)
         {
-            if (groupId.Equals(default)) return BadRequest(new { message = "ادخل id صحيح" });
+            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+            if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
+            {
+                return BadRequest(new { message = "لاتوجد حلقة" });
+            }
             var query = await _db.Groups.Where(x => x.Id == groupId)
                 .Select(x => new
                 {
@@ -68,6 +72,30 @@ namespace Jaberah.Controllers
                 StudentsNo = query.StudentCount
             });
         }
+        [HttpGet("teacher/{teacherId}")]
+        public async Task<IActionResult> GetGroupOfTeacher([FromRoute] int teacherId)
+        {
+            if (teacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+            if (!await _db.Teachers.AllAsync(x => x.Id == teacherId))
+            {
+                return BadRequest(new { message = "لايوجد معلم" });
+            }
+            var query = await _db.Groups.Where(x => x.TeacherId == teacherId)
+                .Select(x => new
+                {
+                    x.GroupName,
+                    x.Period,
+                    StudentCount = x.Students.Count
+                })
+                .FirstOrDefaultAsync();
+
+            return Ok(new GetGroupForView
+            {
+                GroupName = query!.GroupName,
+                Period = GetPeriodName((byte)query.Period),
+                StudentsNo = query.StudentCount
+            });
+        }
         [HttpGet("has-no-teacher-data")]
         public async Task<IActionResult> GetGroupsWithNoTeacher()
         {
@@ -81,7 +109,11 @@ namespace Jaberah.Controllers
         [HttpGet("{teacherId}/has-no-teacher-or-has-teacher")]
         public async Task<IActionResult> GetGroupsWithNoTeacherAndTeacherGroups([FromRoute] int teacherId)
         {
-            if (teacherId.Equals(default)) return BadRequest(new { message = "ادخل id صحيح" });
+            if (teacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+            if (!await _db.Teachers.AllAsync(x => x.Id == teacherId))
+            {
+                return BadRequest(new { message = "لايوجد معلم" });
+            }
             var groups = await _db.Groups
                     .Where(g => g.TeacherId == teacherId || !g.TeacherId.HasValue)
                     .Select(g => new { g.Id, g.GroupName })
@@ -110,7 +142,7 @@ namespace Jaberah.Controllers
         [HttpPut("{groupId}")]
         public async Task<IActionResult> UpdateGroup([FromRoute] int groupId, [FromBody] UpdateGroupDTO model)
         {
-            if (groupId.Equals(default)) return BadRequest(new { message = "ادخل id صحيح" });
+            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
             var group = await _db.Groups.FindAsync(groupId);
             if (group is null)
                 return NotFound(new { message = "لاتوجد حلقة" });
@@ -127,7 +159,7 @@ namespace Jaberah.Controllers
         [HttpDelete("{groupId}")]
         public async Task<IActionResult> DeleteGroup([FromRoute] int groupId)
         {
-            if (groupId.Equals(default)) return BadRequest(new { message = "ادخل id صحيح" });
+            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
             var group = await _db.Groups.FindAsync(groupId);
             if (group is null)
                 return NotFound(new { message = "لاتوجد حلقة" });

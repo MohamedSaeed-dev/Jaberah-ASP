@@ -87,6 +87,7 @@ namespace Jaberah.Controllers
         [HttpPut("{teacherId}")]
         public async Task<IActionResult> UpdateTeacher(int teacherId, [FromBody] UpdateTeacherDTO model)
         {
+            if (teacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
             var teacher = await _db.Teachers
                 .Include(t => t.Groups)
                 .FirstOrDefaultAsync(t => t.Id == teacherId);
@@ -147,6 +148,7 @@ namespace Jaberah.Controllers
         [HttpDelete("{teacherId}")]
         public async Task<IActionResult> DeleteTeacher(int teacherId)
         {
+            if (teacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
             var teacher = await _db.Teachers
                 .FirstOrDefaultAsync(t => t.Id == teacherId);
 

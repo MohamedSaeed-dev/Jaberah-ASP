@@ -17,14 +17,14 @@ namespace Jaberah.Controllers
         {
             _db = db;
         }
-        [HttpGet("for-day")]
-        public async Task<IActionResult> GetFollowStudentForDay([FromQuery] int studentId, [FromQuery] DateTime date)
+        [HttpGet("students/{studentId}/for-day")]
+        public async Task<IActionResult> GetFollowStudentForStudentForDay([FromRoute] int studentId, [FromQuery] DateTime date)
         {
             if (date.Equals(default))
             {
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
             }
-            if (!await _db.FollowStudentsInMonth.AnyAsync(x => x.Id == studentId))
+            if (!await _db.Students.AnyAsync(x => x.Id == studentId))
             {
                 return BadRequest(new { message = "لايوجد طالب" });
             }
@@ -80,15 +80,15 @@ namespace Jaberah.Controllers
 
         }
 
-        [HttpGet("for-month")]
-        public async Task<IActionResult> GetFollowStudentForMonth([FromQuery] int studentId, [FromQuery] int year, [FromQuery] int month)
+        [HttpGet("students/{studentId}/for-month")]
+        public async Task<IActionResult> GetFollowStudentForStudentForMonth([FromRoute] int studentId, [FromQuery] int year, [FromQuery] int month)
         {
             if (year <= 0 || month <= 0)
             {
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
             }
 
-            if (!await _db.FollowStudentsInMonth.AnyAsync(x => x.Id == studentId))
+            if (!await _db.Students.AnyAsync(x => x.Id == studentId))
             {
                 return BadRequest(new { message = "لايوجد طالب" });
             }
@@ -150,16 +150,99 @@ namespace Jaberah.Controllers
             return Ok(result);
         }
 
+        [HttpGet("groups/{groupId}/for-day")]
+        public async Task<IActionResult> GetFollowStudentsForGroupForDay([FromRoute] int groupId, [FromQuery] DateTime date)
+        {
+            if (date == default)
+            {
+                return BadRequest(new { message = "ادخل تاريخ صحيح" });
+            }
+
+            if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
+            {
+                return BadRequest(new { message = "لاتوجد حلقة" });
+            }
+
+            HijriCalendar hijriCalendar = new HijriCalendar();
+            DateTime parsedDate = hijriCalendar.ToDateTime(date.Year, date.Month, date.Day, 0, 0, 0, 0);
+
+            var followStudents = await _db.Students
+                .Where(student => student.GroupId == groupId)
+                .Select(student => new
+                {
+                    student.Id,
+                    student.StudentName,
+                    FollowDetails = _db.FollowStudentsInMonth
+                        .Where(f => f.StudentId == student.Id && f.Date == parsedDate)
+                        .SelectMany(f => f.FollowStudentInMonthRows.Select(row => new GetFollowStudentForDay
+                        {
+                            Id = row.Id,
+                            StudentName = student.StudentName,
+                            Attendance = row.Attendance,
+                            Behavior = row.Behavior,
+
+                            SurahFromTeacher = row.WithTeacher.From.SurahName ?? "",
+                            SurahToTeacher = row.WithTeacher.To.SurahName ?? "",
+                            VerseFromTeacher = row.WithTeacher.From.Verse,
+                            VerseToTeacher = row.WithTeacher.To.Verse,
+                            PagesTeacher = row.WithTeacher.Pages,
+                            RateTeacher = row.WithTeacher.Rate ?? "",
+
+                            SurahFromFriend = row.WithFriend.From.SurahName ?? "",
+                            SurahToFriend = row.WithFriend.To.SurahName ?? "",
+                            VerseFromFriend = row.WithFriend.From.Verse,
+                            VerseToFriend = row.WithFriend.To.Verse,
+                            PagesFriend = row.WithFriend.Pages,
+                            RateFriend = row.WithFriend.Rate ?? ""
+                        })).ToList()
+                }).ToListAsync();
+
+            var result = followStudents.SelectMany(student =>
+            {
+                if (student.FollowDetails.Any())
+                {
+                    return student.FollowDetails;
+                }
+
+                return new List<GetFollowStudentForDay>
+                {
+                    new GetFollowStudentForDay
+                    {
+                        Id = student.Id,
+                        StudentName = student.StudentName,
+                        Attendance = 0,
+                        Behavior = 0,
+
+                        SurahFromTeacher = "",
+                        SurahToTeacher = "",
+                        VerseFromTeacher = 1,
+                        VerseToTeacher = 1,
+                        PagesTeacher = 0,
+                        RateTeacher = "",
+
+                        SurahFromFriend = "",
+                        SurahToFriend = "",
+                        VerseFromFriend = 1,
+                        VerseToFriend = 1,
+                        PagesFriend = 0,
+                        RateFriend = ""
+                    }
+                };
+            }).ToList();
+
+            return Ok(result);
+        }
+
+
         [HttpPost]
         public async Task<IActionResult> UpsertFollowStudent([FromQuery] DateTime date, [FromBody] UpsertFollowStudentsDTO model)
         {
-            // Validate the date
             if (date.Equals(default))
             {
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
             }
 
-            if (!await _db.FollowStudentsInMonth.AnyAsync(x => x.Id == model.StudentId))
+            if (!await _db.Students.AnyAsync(x => x.Id == model.StudentId))
             {
                 return BadRequest(new { message = "لايوجد طالب" });
             }

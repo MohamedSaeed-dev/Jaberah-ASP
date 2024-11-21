@@ -227,7 +227,7 @@ namespace Jaberah.Controllers
                 BehaviorGrade = x.Behavior,
                 OralGrade = x.OralExam,
                 PaperGrade = x.PaperExam,
-                Total = ((x.Attendance + x.Behavior + x.OralExam + x.PaperExam * 100)) / 100
+                Total = ((x.Attendance + x.Behavior + x.OralExam + x.PaperExam) * 100) / 100
 
             }).OrderByDescending(x => x.Total);
             return Ok(result);
@@ -315,7 +315,7 @@ namespace Jaberah.Controllers
                 BehaviorGrade = x.Behavior,
                 OralGrade = x.OralExam,
                 PaperGrade = x.PaperExam,
-                Total = ((x.Attendance + x.Behavior + x.OralExam + x.PaperExam * 100)) / 100
+                Total = ((x.Attendance + x.Behavior + x.OralExam + x.PaperExam) * 100) / 100
 
             }).OrderByDescending(x => x.Total);
             return Ok(result);
