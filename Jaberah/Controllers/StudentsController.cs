@@ -18,9 +18,11 @@ namespace Jaberah.Controllers
         private readonly IMapper _mapper = mapper;
 
         [HttpGet]
-        public async Task<IActionResult> GetStudents([FromQuery] string searchText = "", [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetStudents([FromQuery] string searchText = "", [FromQuery] bool withoutGroup = false, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var query = _db.Students.AsNoTracking().Where(x => x.StudentName.Contains(searchText)).Select(x => new GetStudentsForView
+            var query = _db.Students.AsNoTracking().Where(x => x.StudentName.Contains(searchText)).AsQueryable();
+            if (withoutGroup) query = query.Where(x => !x.GroupId.HasValue).AsQueryable();
+            var selectedQuery = query.Select(x => new GetStudentsForView
             {
                 Id = x.Id,
                 StudentName = x.StudentName,
@@ -32,8 +34,8 @@ namespace Jaberah.Controllers
                 Notes = x.Notes
             }).AsQueryable();
 
-            var pagedStudents = (await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
-                            .ToPagedList(await query.CountAsync(), pageNumber, pageSize);
+            var pagedStudents = (await selectedQuery.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
+                            .ToPagedList(await selectedQuery.CountAsync(), pageNumber, pageSize);
 
             return Ok(pagedStudents);
         }
