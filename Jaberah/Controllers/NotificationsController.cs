@@ -7,15 +7,11 @@ namespace Jaberah.Controllers
 {
     [Route("api/notifications")]
     [ApiController]
-    public class NotificationsController : ControllerBase
+    public class NotificationsController(JaberahDBContext db, IMapper mapper) : ControllerBase
     {
-        private readonly JaberahDBContext _db;
-        private readonly IMapper _mapper;
-        public NotificationsController(JaberahDBContext db, IMapper mapper)
-        {
-            _db = db;
-            _mapper = mapper;
-        }
+        private readonly JaberahDBContext _db = db;
+        private readonly IMapper _mapper = mapper;
+
         [HttpPost]
         public async Task<IActionResult> SendNotification([FromBody] NotificationsDTO message)
         {

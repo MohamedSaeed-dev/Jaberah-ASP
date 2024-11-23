@@ -12,15 +12,11 @@ namespace Jaberah.Controllers
 {
     [Route("api/students")]
     [ApiController]
-    public class StudentsController : ControllerBase
+    public class StudentsController(JaberahDBContext db, IMapper mapper) : ControllerBase
     {
-        private readonly JaberahDBContext _db;
-        private readonly IMapper _mapper;
-        public StudentsController(JaberahDBContext db, IMapper mapper)
-        {
-            _db = db;
-            _mapper = mapper;
-        }
+        private readonly JaberahDBContext _db = db;
+        private readonly IMapper _mapper = mapper;
+
         [HttpGet]
         public async Task<IActionResult> GetStudents([FromQuery] string searchText = "", [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {

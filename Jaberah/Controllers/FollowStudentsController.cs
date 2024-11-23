@@ -10,13 +10,10 @@ namespace Jaberah.Controllers
 {
     [Route("api/follow-students")]
     [ApiController]
-    public class FollowStudentsController : ControllerBase
+    public class FollowStudentsController(JaberahDBContext db) : ControllerBase
     {
-        private readonly JaberahDBContext _db;
-        public FollowStudentsController(JaberahDBContext db)
-        {
-            _db = db;
-        }
+        private readonly JaberahDBContext _db = db;
+
         [HttpGet("students/{studentId}/for-day")]
         public async Task<IActionResult> GetFollowStudentForStudentForDay([FromRoute] int studentId, [FromQuery] DateTime date)
         {

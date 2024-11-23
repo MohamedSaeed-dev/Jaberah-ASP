@@ -11,13 +11,10 @@ namespace Jaberah.Controllers
 {
     [Route("api/teachers-salaries")]
     [ApiController]
-    public class TeachersSalariesController : ControllerBase
+    public class TeachersSalariesController(JaberahDBContext db) : ControllerBase
     {
-        private readonly JaberahDBContext _db;
-        public TeachersSalariesController(JaberahDBContext db)
-        {
-            _db = db;
-        }
+        private readonly JaberahDBContext _db = db;
+
         [HttpGet("for-month")]
         public async Task<IActionResult> GetTeachersSalariesForMonth([FromQuery] int year, [FromQuery] int month, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {

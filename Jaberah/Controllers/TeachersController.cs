@@ -12,15 +12,11 @@ namespace Jaberah.Controllers
 {
     [Route("api/teachers")]
     [ApiController]
-    public class TeachersController : ControllerBase
+    public class TeachersController(JaberahDBContext db, IMapper mapper) : ControllerBase
     {
-        private readonly JaberahDBContext _db;
-        private readonly IMapper _mapper;
-        public TeachersController(JaberahDBContext db, IMapper mapper)
-        {
-            _db = db;
-            _mapper = mapper;
-        }
+        private readonly JaberahDBContext _db = db;
+        private readonly IMapper _mapper = mapper;
+
         [HttpGet]
         public async Task<IActionResult> GetTeachers([FromQuery] string searchText = "", [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
@@ -97,7 +93,7 @@ namespace Jaberah.Controllers
                 return NotFound(new { message = "لايوجد معلم" });
             }
 
-            if (model.GroupsId is not null && model.GroupsId.Any())
+            if (model.GroupsId is not null && model.GroupsId.Count > 0)
             {
                 var existingGroups = await _db.Groups
                     .Where(g => model.GroupsId.Contains(g.Id))
@@ -109,11 +105,10 @@ namespace Jaberah.Controllers
                 }
                 else
                 {
-                    //if (await _db.Teachers.AnyAsync(t => t.Groups.Any(g => model.GroupsId.Contains(g.Id))))
-                    //{
-                    //    return BadRequest(new { message = "هناك معلمين مرتبطين بهذه الحلقات" });
-                    //}
-
+                    if (await _db.Teachers.AnyAsync(t => t.Id != teacherId && t.Groups.Any(g => model.GroupsId.Contains(g.Id))))
+                    {
+                        return BadRequest(new { message = "هناك معلمين مرتبطين بهذه الحلقات" });
+                    }
                 }
             }
 
@@ -132,7 +127,7 @@ namespace Jaberah.Controllers
             teacher.TeacherName = string.IsNullOrEmpty(model.TeacherName) ? teacher.TeacherName : model.TeacherName;
             teacher.PhoneNumber = string.IsNullOrEmpty(model.PhoneNumber) ? teacher.PhoneNumber : model.PhoneNumber;
 
-            if (model.GroupsId != null && model.GroupsId.Any())
+            if (model.GroupsId != null && model.GroupsId.Count > 0)
             {
                 var newGroups = await _db.Groups
                     .Where(g => model.GroupsId.Contains(g.Id))

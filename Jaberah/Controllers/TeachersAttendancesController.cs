@@ -11,13 +11,10 @@ namespace Jaberah.Controllers
 {
     [Route("api/teachers-attendances")]
     [ApiController]
-    public class TeachersAttendancesController : ControllerBase
+    public class TeachersAttendancesController(JaberahDBContext db) : ControllerBase
     {
-        private readonly JaberahDBContext _db;
-        public TeachersAttendancesController(JaberahDBContext db)
-        {
-            _db = db;
-        }
+        private readonly JaberahDBContext _db = db;
+
         [HttpGet("for-month-report")]
         public async Task<IActionResult> GetTeachersAttendancesReportForMonth([FromQuery] int year, [FromQuery] int month, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {

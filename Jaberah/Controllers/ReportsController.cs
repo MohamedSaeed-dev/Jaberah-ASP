@@ -8,13 +8,10 @@ namespace Jaberah.Controllers
 {
     [Route("api/reports")]
     [ApiController]
-    public class ReportsController : ControllerBase
+    public class ReportsController(JaberahDBContext db) : ControllerBase
     {
-        private readonly JaberahDBContext _db;
-        public ReportsController(JaberahDBContext db)
-        {
-            _db = db;
-        }
+        private readonly JaberahDBContext _db = db;
+
         [HttpGet("semester-report")]
         public async Task<IActionResult> GetSemesterReport([FromQuery] int groupId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
         {

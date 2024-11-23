@@ -9,15 +9,11 @@ namespace Jaberah.Controllers
 {
     [Route("api/exams")]
     [ApiController]
-    public class ExamsController : ControllerBase
+    public class ExamsController(JaberahDBContext db, IMapper mapper) : ControllerBase
     {
-        private readonly JaberahDBContext _db;
-        private readonly IMapper _mapper;
-        public ExamsController(JaberahDBContext db, IMapper mapper)
-        {
-            _db = db;
-            _mapper = mapper;
-        }
+        private readonly JaberahDBContext _db = db;
+        private readonly IMapper _mapper = mapper;
+
         [HttpPost("monthly-exam")]
         public async Task<IActionResult> UpsertMonthlyExams([FromQuery] int followStudentId, [FromBody] UpsertMonthlyExamsDTO model)
         {

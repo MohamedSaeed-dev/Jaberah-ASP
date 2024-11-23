@@ -11,15 +11,11 @@ namespace Jaberah.Controllers
 {
     [Route("api/auth")]
     [ApiController]
-    public class AuthController : ControllerBase
+    public class AuthController(JaberahDBContext db, IConfiguration configuration) : ControllerBase
     {
-        private readonly JaberahDBContext _db;
-        private readonly IConfiguration _configuration;
-        public AuthController(JaberahDBContext db, IConfiguration configuration)
-        {
-            _db = db;
-            _configuration = configuration;
-        }
+        private readonly JaberahDBContext _db = db;
+        private readonly IConfiguration _configuration = configuration;
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDTO model)
         {

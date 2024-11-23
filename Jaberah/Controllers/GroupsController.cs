@@ -13,15 +13,11 @@ namespace Jaberah.Controllers
 {
     [Route("api/groups")]
     [ApiController]
-    public class GroupsController : ControllerBase
+    public class GroupsController(JaberahDBContext db, IMapper mapper) : ControllerBase
     {
-        private readonly JaberahDBContext _db;
-        private readonly IMapper _mapper;
-        public GroupsController(JaberahDBContext db, IMapper mapper)
-        {
-            _db = db;
-            _mapper = mapper;
-        }
+        private readonly JaberahDBContext _db = db;
+        private readonly IMapper _mapper = mapper;
+
         [HttpGet]
         public async Task<IActionResult> GetGroups([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
