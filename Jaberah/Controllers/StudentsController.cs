@@ -119,7 +119,7 @@ namespace Jaberah.Controllers
             student.SchoolClass = !string.IsNullOrWhiteSpace(model.SchoolClass) ? model.SchoolClass : student.SchoolClass;
             student.SchoolLevel = !string.IsNullOrWhiteSpace(model.SchoolLevel) ? model.SchoolLevel : student.SchoolLevel;
             student.MemoRate = !string.IsNullOrWhiteSpace(model.MemoRate) ? model.MemoRate : student.MemoRate;
-            student.Notes = !string.IsNullOrWhiteSpace(model.Notes) ? model.Notes : student.Notes;
+            student.Notes = model.Notes is not null ? model.Notes : student.Notes;
             student.GroupId = model.GroupId.HasValue ? model.GroupId.Value : student.GroupId;
 
             _db.Students.Update(student);

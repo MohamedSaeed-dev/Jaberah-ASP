@@ -2,6 +2,7 @@
 using Jaberah.Helpers;
 using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
+using Jaberah.Models.ViewModels.Groups;
 using Jaberah.Models.ViewModels.Teachers;
 using Jaberah.Validations.Teachers;
 using Microsoft.AspNetCore.Mvc;
@@ -37,6 +38,33 @@ namespace Jaberah.Controllers
                 .ToPagedList(await query.CountAsync(), pageNumber, pageSize);
 
             return Ok(pagedTeachers);
+        }
+        [HttpGet("{teacherId}/groups")]
+        public async Task<IActionResult> GetGroupsOfTeacher([FromRoute] int teacherId)
+        {
+            if (teacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+            if (!await _db.Teachers.AnyAsync(x => x.Id == teacherId))
+            {
+                return BadRequest(new { message = "لايوجد معلم" });
+            }
+            var query = await _db.Groups.AsNoTracking().Where(x => x.TeacherId.HasValue && x.TeacherId.Value == teacherId)
+                .Select(x => new
+                {
+                    x.GroupName,
+                    x.Teacher.TeacherName,
+                    x.Period,
+                    StudentCount = x.Students.Count
+                }).ToListAsync();
+
+            if (query is null) return BadRequest(new { message = "لاتوجد حلقات لهذا المعلم" });
+
+            return Ok(query.Select(x => new GetGroupForView
+            {
+                GroupName = x.GroupName,
+                TeacherName = x.TeacherName,
+                Period = GetPeriodName((byte)x.Period),
+                StudentsNo = x.StudentCount
+            }));
         }
         [AddTeacher]
         [HttpPost]
@@ -158,6 +186,12 @@ namespace Jaberah.Controllers
             await _db.SaveChangesAsync();
 
             return Ok(new { message = "تم حذف المعلم بنجاح" });
+        }
+
+        [NonAction]
+        private string GetPeriodName(byte period)
+        {
+            return (Enum.GetName(typeof(Period), period) == "MORNING" ? "صباحية" : "مسائية");
         }
     }
 

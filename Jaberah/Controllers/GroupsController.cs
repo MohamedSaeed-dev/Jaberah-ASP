@@ -4,6 +4,7 @@ using Jaberah.Models.DTOs;
 using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
 using Jaberah.Models.ViewModels.Groups;
+using Jaberah.Models.ViewModels.Students;
 using Jaberah.Validations.Groups;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -68,30 +69,33 @@ namespace Jaberah.Controllers
                 StudentsNo = query.StudentCount
             });
         }
-        [HttpGet("teachers/{teacherId}")]
-        public async Task<IActionResult> GetGroupOfTeacher([FromRoute] int teacherId)
-        {
-            if (teacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
-            if (!await _db.Teachers.AnyAsync(x => x.Id == teacherId))
-            {
-                return BadRequest(new { message = "لايوجد معلم" });
-            }
-            var query = await _db.Groups.AsNoTracking().Where(x => x.TeacherId == teacherId)
-                .Select(x => new
-                {
-                    x.GroupName,
-                    x.Period,
-                    StudentCount = x.Students.Count
-                })
-                .FirstOrDefaultAsync();
 
-            return Ok(new GetGroupForView
+        [HttpGet("{groupId}/students")]
+        public async Task<IActionResult> GetStudentsForGroup([FromRoute] int groupId, [FromQuery] string searchText = "", [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        {
+            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+            if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
             {
-                GroupName = query!.GroupName,
-                Period = GetPeriodName((byte)query.Period),
-                StudentsNo = query.StudentCount
-            });
+                return BadRequest(new { message = "لاتوجد حلقة" });
+            }
+            var query = _db.Students.AsNoTracking().Where(x => (x.GroupId.HasValue && x.GroupId.Value == groupId) && x.StudentName.Contains(searchText))
+                .Select(x => new GetStudentsForGroupForView
+                {
+                    Id = x.Id,
+                    StudentName = x.StudentName,
+                    PhoneNumber = x.PhoneNumber,
+                    SchoolClass = x.SchoolClass,
+                    SchoolLevel = x.SchoolLevel,
+                    MemoRate = x.MemoRate,
+                    Notes = x.Notes
+                }).AsQueryable();
+
+            var pagedStudents = (await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
+                            .ToPagedList(await query.CountAsync(), pageNumber, pageSize);
+
+            return Ok(pagedStudents);
         }
+
         [HttpGet("has-no-teacher-data")]
         public async Task<IActionResult> GetGroupsWithNoTeacher()
         {
@@ -111,7 +115,7 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "لايوجد معلم" });
             }
             var groups = await _db.Groups.AsNoTracking()
-                    .Where(g => g.TeacherId == teacherId || !g.TeacherId.HasValue)
+                    .Where(g => (g.TeacherId.HasValue && g.TeacherId.Value == teacherId) || !g.TeacherId.HasValue)
                     .Select(g => new { g.Id, g.GroupName })
                     .ToListAsync();
 
@@ -165,14 +169,11 @@ namespace Jaberah.Controllers
 
             return Ok(new { message = "تم حذف الحلقة بنجاح" });
         }
-
-
-
-
         [NonAction]
         private string GetPeriodName(byte period)
         {
             return (Enum.GetName(typeof(Period), period) == "MORNING" ? "صباحية" : "مسائية");
         }
     }
+
 }
