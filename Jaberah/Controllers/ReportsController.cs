@@ -97,8 +97,8 @@ namespace Jaberah.Controllers
                 y.WithFriend.Pages,
                 y.WithFriend.Rate
             }),
-        Attendance = x.FollowStudentInMonthRows.Sum(y => (float?)y.Attendance) ?? 0,
-        Behavior = x.FollowStudentInMonthRows.Sum(y => (float?)y.Behavior) ?? 0,
+        Attendance = x.FollowStudentInMonthRows.Sum(y => y.Attendance),
+        Behavior = x.FollowStudentInMonthRows.Sum(y => y.Behavior),
         OralExam = x.Exams != null ? x.Exams.OralExam : 0,
         PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
     })
@@ -187,8 +187,8 @@ namespace Jaberah.Controllers
                 y.WithFriend.Pages,
                 y.WithFriend.Rate
             }),
-                    Attendance = x.FollowStudentInMonthRows.Sum(y => (float?)y.Attendance) ?? 0,
-                    Behavior = x.FollowStudentInMonthRows.Sum(y => (float?)y.Behavior) ?? 0,
+                    Attendance = x.FollowStudentInMonthRows.Sum(y => y.Attendance),
+                    Behavior = x.FollowStudentInMonthRows.Sum(y => y.Behavior),
                     OralExam = x.Exams != null ? x.Exams.OralExam : 0,
                     PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
                 }).Take(take).ToListAsync();
@@ -279,8 +279,8 @@ namespace Jaberah.Controllers
                 y.WithFriend.Pages,
                 y.WithFriend.Rate
             }),
-                    Attendance = x.FollowStudentInMonthRows.Sum(y => (float?)y.Attendance) ?? 0,
-                    Behavior = x.FollowStudentInMonthRows.Sum(y => (float?)y.Behavior) ?? 0,
+                    Attendance = x.FollowStudentInMonthRows.Sum(y => y.Attendance),
+                    Behavior = x.FollowStudentInMonthRows.Sum(y => y.Behavior),
                     OralExam = x.Exams != null ? x.Exams.OralExam : 0,
                     PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
                 }).Take(take).ToListAsync();

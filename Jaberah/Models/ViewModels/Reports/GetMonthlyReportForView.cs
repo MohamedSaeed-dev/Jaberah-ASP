@@ -5,11 +5,11 @@
         public string StudentName { get; set; } = string.Empty;
         public SaveReviewData SaveData { get; set; }
         public SaveReviewData ReviewData { get; set; }
-        public double AttendanceGrade { get; set; }
-        public double BehaviorGrade { get; set; }
-        public double OralGrade { get; set; }
-        public double PaperGrade { get; set; }
-        public double Total { get; set; }
+        public int AttendanceGrade { get; set; }
+        public int BehaviorGrade { get; set; }
+        public float OralGrade { get; set; }
+        public float PaperGrade { get; set; }
+        public float Total { get; set; }
     }
     class SaveReviewData
     {
