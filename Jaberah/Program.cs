@@ -1,3 +1,4 @@
+using Jaberah.Middlewares;
 using Jaberah.Models.MyDbContext;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<JaberahDBContext>(x => x.UseSqlServer(builder.Configuration.GetConnectionString("DB")));
 builder.Services.AddAutoMapper(typeof(Program));
+builder.Services.AddScoped<VerifyTokenAttribute>();
 
 
 builder.Services.AddAuthentication(options =>

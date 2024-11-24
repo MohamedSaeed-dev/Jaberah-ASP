@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Jaberah.Helpers;
+using Jaberah.Middlewares;
 using Jaberah.Models.DTOs;
 using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
@@ -14,6 +15,8 @@ namespace Jaberah.Controllers
 {
     [Route("api/groups")]
     [ApiController]
+    [ServiceFilter(typeof(VerifyTokenAttribute))]
+    [IsAdmin]
     public class GroupsController(JaberahDBContext db, IMapper mapper) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;

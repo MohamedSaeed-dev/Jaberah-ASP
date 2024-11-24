@@ -39,31 +39,6 @@ namespace Jaberah.Controllers
 
             return Ok(pagedStudents);
         }
-        [HttpGet("groups/{groupId}/students-for-group")]
-        public async Task<IActionResult> GetStudentsForGroup([FromRoute] int groupId, [FromQuery] string searchText = "", [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
-        {
-            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
-            if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
-            {
-                return BadRequest(new { message = "لاتوجد حلقة" });
-            }
-            var query = _db.Students.AsNoTracking().Where(x => (x.GroupId.HasValue && x.GroupId.Value == groupId) && x.StudentName.Contains(searchText))
-                .Select(x => new GetStudentsForGroupForView
-                {
-                    Id = x.Id,
-                    StudentName = x.StudentName,
-                    PhoneNumber = x.PhoneNumber,
-                    SchoolClass = x.SchoolClass,
-                    SchoolLevel = x.SchoolLevel,
-                    MemoRate = x.MemoRate,
-                    Notes = x.Notes
-                }).AsQueryable();
-
-            var pagedStudents = (await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
-                            .ToPagedList(await query.CountAsync(), pageNumber, pageSize);
-
-            return Ok(pagedStudents);
-        }
         [AddStudent]
         [HttpPost]
         public async Task<IActionResult> AddStudent([FromBody] AddStudentDTO model)

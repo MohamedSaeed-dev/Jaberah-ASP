@@ -19,23 +19,25 @@ namespace Jaberah.Controllers
         private readonly IMapper _mapper = mapper;
 
         [HttpGet]
-        public async Task<IActionResult> GetTeachers([FromQuery] string searchText = "", [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetTeachers([FromQuery] string searchText = "", [FromQuery] bool withoutGroup = false, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var query = _db.Teachers.AsNoTracking().Where(x => x.Role == Role.TEACHER && x.TeacherName.Contains(searchText))
-                .Select(x => new GetTeachersForView
-                {
-                    Id = x.Id,
-                    TeacherName = x.TeacherName,
-                    PhoneNumber = x.PhoneNumber,
-                    Groups = x.Groups.Select(y => new TeacherGroupsDataForView
-                    {
-                        GroupId = y.Id,
-                        GroupName = y.GroupName,
-                    }).ToList()
-                }).AsQueryable();
+            var query = _db.Teachers.AsNoTracking().Where(x => x.Role == Role.TEACHER && x.TeacherName.Contains(searchText)).AsQueryable();
+            if (withoutGroup) query = query.Where(x => x.Groups == null || x.Groups.Count < 1).AsQueryable();
 
-            var pagedTeachers = (await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
-                .ToPagedList(await query.CountAsync(), pageNumber, pageSize);
+            var selectedQuery = query.Select(x => new GetTeachersForView
+            {
+                Id = x.Id,
+                TeacherName = x.TeacherName,
+                PhoneNumber = x.PhoneNumber,
+                Groups = x.Groups.Select(y => new TeacherGroupsDataForView
+                {
+                    GroupId = y.Id,
+                    GroupName = y.GroupName,
+                }).ToList()
+            }).AsQueryable();
+
+            var pagedTeachers = (await selectedQuery.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
+                .ToPagedList(await selectedQuery.CountAsync(), pageNumber, pageSize);
 
             return Ok(pagedTeachers);
         }
@@ -92,7 +94,7 @@ namespace Jaberah.Controllers
 
             if (conflictingTeacher)
             {
-                return BadRequest(new { message = "هناك معلمين مرتبطين بهذه الحلقات" });
+                return BadRequest(new { message = "هناك معلمين مرتبطين ببعض هذه الحلقات" });
             }
 
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(model.PhoneNumber);
@@ -135,7 +137,7 @@ namespace Jaberah.Controllers
                 {
                     if (await _db.Teachers.AnyAsync(t => t.Id != teacherId && t.Groups.Any(g => model.GroupsId.Contains(g.Id))))
                     {
-                        return BadRequest(new { message = "هناك معلمين مرتبطين بهذه الحلقات" });
+                        return BadRequest(new { message = "هناك معلمين مرتبطين ببعض هذه الحلقات" });
                     }
                 }
             }
