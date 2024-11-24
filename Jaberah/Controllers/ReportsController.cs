@@ -104,7 +104,7 @@ namespace Jaberah.Controllers
     })
     .ToListAsync();
 
-            var result = grouped.Select(x => new MonthlyReportForView
+            var result = grouped.Select(x => new GetMonthlyReportForView
             {
                 StudentName = x.StudentName,
                 SaveData = new SaveReviewData
@@ -193,7 +193,7 @@ namespace Jaberah.Controllers
                     PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
                 }).Take(take).ToListAsync();
 
-            var result = grouped.Select(x => new MonthlyReportForView
+            var result = grouped.Select(x => new GetMonthlyReportForView
             {
                 StudentName = x.StudentName,
                 SaveData = new SaveReviewData
@@ -285,7 +285,7 @@ namespace Jaberah.Controllers
                     PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
                 }).Take(take).ToListAsync();
 
-            var result = grouped.Select(x => new MonthlyReportForView
+            var result = grouped.Select(x => new GetMonthlyReportForView
             {
                 StudentName = x.StudentName,
                 SaveData = new SaveReviewData

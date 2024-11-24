@@ -1,5 +1,4 @@
 ﻿using AutoMapper;
-using Jaberah.Middlewares;
 using Jaberah.Models.DTOs;
 using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
@@ -8,8 +7,6 @@ namespace Jaberah.Controllers
 {
     [Route("api/notifications")]
     [ApiController]
-    [ServiceFilter(typeof(VerifyTokenAttribute))]
-    [IsAdmin]
     public class NotificationsController(JaberahDBContext db, IMapper mapper) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;

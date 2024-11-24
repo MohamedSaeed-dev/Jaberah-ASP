@@ -18,7 +18,7 @@
         public float PagesFriend { get; set; }
 
 
-        public float Attendance { get; set; }
-        public float Behavior { get; set; }
+        public byte Attendance { get; set; }
+        public byte Behavior { get; set; }
     }
 }

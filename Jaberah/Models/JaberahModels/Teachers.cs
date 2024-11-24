@@ -13,7 +13,7 @@
     }
     public enum Role
     {
-        ADMIN,
+        ADMIN = 1,
         TEACHER
     }
 }

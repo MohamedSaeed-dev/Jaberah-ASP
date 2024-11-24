@@ -262,8 +262,7 @@ namespace Jaberah.Controllers
                 .ThenInclude(x => x.WithFriend)
                 .ThenInclude(x => x.To)
                 .Include(x => x.Exams)
-                .FirstOrDefaultAsync(f => parsedDate == f.Date &&
-                                           f.StudentId == model.StudentId);
+                .FirstOrDefaultAsync(x => parsedDate == x.Date && x.StudentId == model.StudentId);
 
             if (existingFollow != null)
             {
@@ -271,51 +270,7 @@ namespace Jaberah.Controllers
             }
             else
             {
-                var newFollow = new FollowStudentInMonth
-                {
-                    Date = parsedDate,
-                    StudentId = model.StudentId,
-                    FollowStudentInMonthRows = new List<FollowStudentInMonthRow>
-                    {
-                        new()
-                        {
-                            Day = parsedDate.Day,
-                            Attendance = model.Attendance ?? 0,
-                            Behavior = model.Behavior ?? 0,
-                            WithTeacher = new WithTeacherFriend
-                            {
-                                From = new Surah
-                                {
-                                    SurahName = model.SurahFromTeacher ?? "",
-                                    Verse = model.VerseFromTeacher ?? 0
-                                },
-                                To = new Surah
-                                {
-                                    SurahName = model.SurahToTeacher ?? "",
-                                    Verse = model.VerseToTeacher ?? 0
-                                },
-                                Rate = model.RateTeacher ?? "",
-                                Pages = model.PagesTeacher ?? 0
-                            },
-                            WithFriend = new WithTeacherFriend
-                            {
-                                From = new Surah
-                                {
-                                    SurahName = model.SurahFromFriend ?? "",
-                                    Verse = model.VerseFromFriend ?? 0
-                                },
-                                To = new Surah
-                                {
-                                    SurahName = model.SurahToFriend ?? "",
-                                    Verse = model.VerseToFriend ?? 0
-                                },
-                                Rate = model.RateFriend ?? "",
-                                Pages = model.PagesFriend ?? 0
-                            }
-                        }
-                    }
-                };
-                await _db.FollowStudentsInMonth.AddAsync(newFollow);
+                CreateFollowStudent(date, model);
             }
 
             await _db.SaveChangesAsync();
@@ -323,6 +278,54 @@ namespace Jaberah.Controllers
             return Ok(new { message = "تم حفظ البيانات بنجاح" });
         }
 
+        private async void CreateFollowStudent(DateTime date, UpsertFollowStudentsDTO model)
+        {
+            var newFollow = new FollowStudentInMonth
+            {
+                Date = date,
+                StudentId = model.StudentId,
+                FollowStudentInMonthRows = new List<FollowStudentInMonthRow>
+                {
+                    new()
+                    {
+                        Day = date.Day,
+                        Attendance = model.Attendance ?? 0,
+                        Behavior = model.Behavior ?? 0,
+                        WithTeacher = new WithTeacherFriend
+                        {
+                            From = new Surah
+                            {
+                                SurahName = model.SurahFromTeacher ?? "",
+                                Verse = model.VerseFromTeacher ?? 0
+                            },
+                            To = new Surah
+                            {
+                                SurahName = model.SurahToTeacher ?? "",
+                                Verse = model.VerseToTeacher ?? 0
+                            },
+                            Rate = model.RateTeacher ?? "",
+                            Pages = model.PagesTeacher ?? 0
+                        },
+                        WithFriend = new WithTeacherFriend
+                        {
+                            From = new Surah
+                            {
+                                SurahName = model.SurahFromFriend ?? "",
+                                Verse = model.VerseFromFriend ?? 0
+                            },
+                            To = new Surah
+                            {
+                                SurahName = model.SurahToFriend ?? "",
+                                Verse = model.VerseToFriend ?? 0
+                            },
+                            Rate = model.RateFriend ?? "",
+                            Pages = model.PagesFriend ?? 0
+                        }
+                    }
+                }
+            };
+            await _db.FollowStudentsInMonth.AddAsync(newFollow);
+        }
         private void UpdateFollowStudent(FollowStudentInMonth existingFollow, UpsertFollowStudentsDTO model, int day)
         {
             var row = existingFollow.FollowStudentInMonthRows.FirstOrDefault(r => r.Day == day);
@@ -335,7 +338,6 @@ namespace Jaberah.Controllers
                 existingFollow.FollowStudentInMonthRows.Add(CreateFollowStudentRow(model, existingFollow.Id, day));
             }
         }
-
         private FollowStudentInMonthRow CreateFollowStudentRow(UpsertFollowStudentsDTO model, int followId, int day)
         {
             return new FollowStudentInMonthRow
@@ -360,7 +362,6 @@ namespace Jaberah.Controllers
                 }
             };
         }
-
         private void UpdateFollowStudentRow(FollowStudentInMonthRow row, UpsertFollowStudentsDTO model)
         {
             row.Attendance = model.Attendance ?? row.Attendance;
