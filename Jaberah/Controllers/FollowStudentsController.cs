@@ -28,8 +28,8 @@ namespace Jaberah.Controllers
             }
             HijriCalendar hijriCalendar = new HijriCalendar();
             DateTime parsedDate = hijriCalendar.ToDateTime(date.Year, date.Month, date.Day, 0, 0, 0, 0);
-            var followStudentQuery = await _db.FollowStudentsInMonth.AsNoTracking().Where(x => x.StudentId == studentId && parsedDate == x.Date).SelectMany(y => y.FollowStudentInMonthRows
-                .Select(x => new GetFollowStudentForDay
+            var followStudentQuery = await _db.FollowStudentsInMonth.AsNoTracking().Where(x => x.StudentId == studentId && parsedDate.Year == x.Date.Year && parsedDate.Month == x.Date.Month).SelectMany(y => y.FollowStudentInMonthRows
+                .Where(x => x.Day == parsedDate.Day).Select(x => new GetFollowStudentForDay
                 {
                     StudentName = y.Student.StudentName,
                     Attendance = x.Attendance,
@@ -171,10 +171,9 @@ namespace Jaberah.Controllers
                     student.Id,
                     student.StudentName,
                     FollowDetails = _db.FollowStudentsInMonth.AsNoTracking()
-                        .Where(f => f.StudentId == student.Id && f.Date == parsedDate)
-                        .SelectMany(f => f.FollowStudentInMonthRows.Select(row => new GetFollowStudentForDay
+                        .Where(f => f.StudentId == student.Id && parsedDate.Year == f.Date.Year && parsedDate.Month == f.Date.Month)
+                        .SelectMany(f => f.FollowStudentInMonthRows.Where(x => x.Day == parsedDate.Day).Select(row => new GetFollowStudentForDay
                         {
-                            Id = row.Id,
                             StudentName = student.StudentName,
                             Attendance = row.Attendance,
                             Behavior = row.Behavior,
@@ -206,7 +205,6 @@ namespace Jaberah.Controllers
                 {
                     new GetFollowStudentForDay
                     {
-                        Id = student.Id,
                         StudentName = student.StudentName,
                         Attendance = 0,
                         Behavior = 0,
@@ -263,7 +261,7 @@ namespace Jaberah.Controllers
                 .ThenInclude(x => x.WithFriend)
                 .ThenInclude(x => x.To)
                 .Include(x => x.Exams)
-                .FirstOrDefaultAsync(x => parsedDate == x.Date && x.StudentId == model.StudentId);
+                .FirstOrDefaultAsync(x => parsedDate.Year == x.Date.Year && parsedDate.Month == x.Date.Month && x.StudentId == model.StudentId);
 
             if (existingFollow != null)
             {
@@ -349,15 +347,31 @@ namespace Jaberah.Controllers
                 Behavior = model.Behavior ?? 0,
                 WithTeacher = new WithTeacherFriend
                 {
-                    FromId = model.VerseFromTeacher ?? 0,
-                    ToId = model.VerseToTeacher ?? 0,
+                    From = new Surah
+                    {
+                        SurahName = model.SurahFromTeacher ?? "",
+                        Verse = model.VerseFromTeacher ?? 0
+                    },
+                    To = new Surah
+                    {
+                        SurahName = model.SurahToTeacher ?? "",
+                        Verse = model.VerseToTeacher ?? 0
+                    },
                     Rate = model.RateTeacher ?? "",
                     Pages = model.PagesTeacher ?? 0
                 },
                 WithFriend = new WithTeacherFriend
                 {
-                    FromId = model.VerseFromFriend ?? 0,
-                    ToId = model.VerseToFriend ?? 0,
+                    From = new Surah
+                    {
+                        SurahName = model.SurahFromFriend ?? "",
+                        Verse = model.VerseFromFriend ?? 0
+                    },
+                    To = new Surah
+                    {
+                        SurahName = model.SurahToFriend ?? "",
+                        Verse = model.VerseToFriend ?? 0
+                    },
                     Rate = model.RateFriend ?? "",
                     Pages = model.PagesFriend ?? 0
                 }
