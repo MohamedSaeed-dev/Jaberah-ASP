@@ -122,8 +122,8 @@ namespace Jaberah.Controllers
                     },
                     To = new FromToData
                     {
-                        SurahName = x.Save.LastOrDefault()!.FromSurah,
-                        Verse = x.Save.LastOrDefault()!.FromVerse,
+                        SurahName = x.Save.LastOrDefault()!.ToSurah,
+                        Verse = x.Save.LastOrDefault()!.ToVerse,
                     },
                     Pages = x.Save.Sum(y => y.Pages),
                     Rate = ""
@@ -137,8 +137,8 @@ namespace Jaberah.Controllers
                     },
                     To = new FromToData
                     {
-                        SurahName = x.Review.LastOrDefault()!.FromSurah,
-                        Verse = x.Review.LastOrDefault()!.FromVerse,
+                        SurahName = x.Review.LastOrDefault()!.ToSurah,
+                        Verse = x.Review.LastOrDefault()!.ToVerse,
                     },
                     Pages = x.Review.Sum(y => y.Pages),
                     Rate = ""
@@ -211,8 +211,8 @@ namespace Jaberah.Controllers
                     },
                     To = new FromToData
                     {
-                        SurahName = x.Save.LastOrDefault()!.FromSurah,
-                        Verse = x.Save.LastOrDefault()!.FromVerse,
+                        SurahName = x.Save.LastOrDefault()!.ToSurah,
+                        Verse = x.Save.LastOrDefault()!.ToVerse,
                     },
                     Pages = x.Save.Sum(y => y.Pages),
                     Rate = ""
@@ -226,8 +226,8 @@ namespace Jaberah.Controllers
                     },
                     To = new FromToData
                     {
-                        SurahName = x.Review.LastOrDefault()!.FromSurah,
-                        Verse = x.Review.LastOrDefault()!.FromVerse,
+                        SurahName = x.Review.LastOrDefault()!.ToSurah,
+                        Verse = x.Review.LastOrDefault()!.ToVerse,
                     },
                     Pages = x.Review.Sum(y => y.Pages),
                     Rate = ""
@@ -304,8 +304,8 @@ namespace Jaberah.Controllers
                     },
                     To = new FromToData
                     {
-                        SurahName = x.Save.LastOrDefault()!.FromSurah,
-                        Verse = x.Save.LastOrDefault()!.FromVerse,
+                        SurahName = x.Save.LastOrDefault()!.ToSurah,
+                        Verse = x.Save.LastOrDefault()!.ToVerse,
                     },
                     Pages = x.Save.Sum(y => y.Pages),
                     Rate = ""
@@ -319,8 +319,8 @@ namespace Jaberah.Controllers
                     },
                     To = new FromToData
                     {
-                        SurahName = x.Review.LastOrDefault()!.FromSurah,
-                        Verse = x.Review.LastOrDefault()!.FromVerse,
+                        SurahName = x.Review.LastOrDefault()!.ToSurah,
+                        Verse = x.Review.LastOrDefault()!.ToVerse,
                     },
                     Pages = x.Review.Sum(y => y.Pages),
                     Rate = ""
