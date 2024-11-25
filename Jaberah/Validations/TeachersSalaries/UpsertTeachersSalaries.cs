@@ -31,14 +31,6 @@ namespace Jaberah.Validations.TeachersSalaries
                         Message = "الراتب يجب ان يكون اكبر من صفر"
                     });
                 }
-                else if (dto.DaysAbsence.HasValue && dto.DaysAbsence.Value < 0)
-                {
-                    validationContent.Add(new ValidationModel
-                    {
-                        Key = "ايام الغياب",
-                        Message = "ايام الغياب يجب ان تكون اكبر من صفر"
-                    });
-                }
 
             }
             else

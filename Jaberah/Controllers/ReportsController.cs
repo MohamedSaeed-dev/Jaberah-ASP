@@ -19,6 +19,11 @@ namespace Jaberah.Controllers
             if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
                 return BadRequest(new { message = "لاتوجد حلقة" });
 
+            if (fromDate.Equals(default) || toDate.Equals(default))
+            {
+                return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
+            }
+
             HijriCalendar hijriCalendar = new HijriCalendar();
             DateTime fromGreg = hijriCalendar.ToDateTime(fromDate.Year, fromDate.Month, 1, 0, 0, 0, 0);
 
@@ -56,6 +61,7 @@ namespace Jaberah.Controllers
         [HttpGet("monthly-report")]
         public async Task<IActionResult> GetMonthlyReport([FromQuery] int groupId, [FromQuery] int year, [FromQuery] int month)
         {
+            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
             if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
                 return BadRequest(new { message = "لاتوجد حلقة" });
 
@@ -71,38 +77,38 @@ namespace Jaberah.Controllers
             DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
 
             var grouped = await _db.FollowStudentsInMonth.AsNoTracking()
-    .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
-    .Select(x => new
-    {
-        x.Student.StudentName,
-        Save = x.FollowStudentInMonthRows
-            .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
-            .Select(y => new
-            {
-                FromSurah = y.WithTeacher.From.SurahName,
-                FromVerse = y.WithTeacher.From.Verse,
-                ToSurah = y.WithTeacher.To.SurahName,
-                ToVerse = y.WithTeacher.To.Verse,
-                y.WithTeacher.Pages,
-                y.WithTeacher.Rate
-            }),
-        Review = x.FollowStudentInMonthRows
-            .Where(y => y.WithFriend != null && y.WithFriend.From != null && y.WithFriend.To != null)
-            .Select(y => new
-            {
-                FromSurah = y.WithFriend.From.SurahName,
-                FromVerse = y.WithFriend.From.Verse,
-                ToSurah = y.WithFriend.To.SurahName,
-                ToVerse = y.WithFriend.To.Verse,
-                y.WithFriend.Pages,
-                y.WithFriend.Rate
-            }),
-        Attendance = x.FollowStudentInMonthRows.Sum(y => y.Attendance),
-        Behavior = x.FollowStudentInMonthRows.Sum(y => y.Behavior),
-        OralExam = x.Exams != null ? x.Exams.OralExam : 0,
-        PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
-    })
-    .ToListAsync();
+                .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
+                .Select(x => new
+                {
+                    x.Student.StudentName,
+                    Save = x.FollowStudentInMonthRows
+                        .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
+                        .Select(y => new
+                        {
+                            FromSurah = y.WithTeacher.From.SurahName,
+                            FromVerse = y.WithTeacher.From.Verse,
+                            ToSurah = y.WithTeacher.To.SurahName,
+                            ToVerse = y.WithTeacher.To.Verse,
+                            y.WithTeacher.Pages,
+                            y.WithTeacher.Rate
+                        }),
+                    Review = x.FollowStudentInMonthRows
+                        .Where(y => y.WithFriend != null && y.WithFriend.From != null && y.WithFriend.To != null)
+                        .Select(y => new
+                        {
+                            FromSurah = y.WithFriend.From.SurahName,
+                            FromVerse = y.WithFriend.From.Verse,
+                            ToSurah = y.WithFriend.To.SurahName,
+                            ToVerse = y.WithFriend.To.Verse,
+                            y.WithFriend.Pages,
+                            y.WithFriend.Rate
+                        }),
+                    Attendance = x.FollowStudentInMonthRows.Sum(y => y.Attendance),
+                    Behavior = x.FollowStudentInMonthRows.Sum(y => y.Behavior),
+                    OralExam = x.Exams != null ? x.Exams.OralExam : 0,
+                    PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
+                })
+                .ToListAsync();
 
             var result = grouped.Select(x => new GetMonthlyReportForView
             {
@@ -166,27 +172,27 @@ namespace Jaberah.Controllers
                 {
                     x.Student.StudentName,
                     Save = x.FollowStudentInMonthRows
-            .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
-            .Select(y => new
-            {
-                FromSurah = y.WithTeacher.From.SurahName,
-                FromVerse = y.WithTeacher.From.Verse,
-                ToSurah = y.WithTeacher.To.SurahName,
-                ToVerse = y.WithTeacher.To.Verse,
-                y.WithTeacher.Pages,
-                y.WithTeacher.Rate
-            }),
+                    .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
+                    .Select(y => new
+                    {
+                        FromSurah = y.WithTeacher.From.SurahName,
+                        FromVerse = y.WithTeacher.From.Verse,
+                        ToSurah = y.WithTeacher.To.SurahName,
+                        ToVerse = y.WithTeacher.To.Verse,
+                        y.WithTeacher.Pages,
+                        y.WithTeacher.Rate
+                    }),
                     Review = x.FollowStudentInMonthRows
-            .Where(y => y.WithFriend != null && y.WithFriend.From != null && y.WithFriend.To != null)
-            .Select(y => new
-            {
-                FromSurah = y.WithFriend.From.SurahName,
-                FromVerse = y.WithFriend.From.Verse,
-                ToSurah = y.WithFriend.To.SurahName,
-                ToVerse = y.WithFriend.To.Verse,
-                y.WithFriend.Pages,
-                y.WithFriend.Rate
-            }),
+                    .Where(y => y.WithFriend != null && y.WithFriend.From != null && y.WithFriend.To != null)
+                    .Select(y => new
+                    {
+                        FromSurah = y.WithFriend.From.SurahName,
+                        FromVerse = y.WithFriend.From.Verse,
+                        ToSurah = y.WithFriend.To.SurahName,
+                        ToVerse = y.WithFriend.To.Verse,
+                        y.WithFriend.Pages,
+                        y.WithFriend.Rate
+                    }),
                     Attendance = x.FollowStudentInMonthRows.Sum(y => y.Attendance),
                     Behavior = x.FollowStudentInMonthRows.Sum(y => y.Behavior),
                     OralExam = x.Exams != null ? x.Exams.OralExam : 0,
@@ -238,6 +244,7 @@ namespace Jaberah.Controllers
         [HttpGet("best-students-for-group-report")]
         public async Task<IActionResult> GetBestStudentsForGroupReport([FromQuery] int groupId, [FromQuery] int year, [FromQuery] int month, [FromQuery] int take = 5)
         {
+            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
             if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
                 return BadRequest(new { message = "لاتوجد حلقة" });
 
@@ -258,27 +265,27 @@ namespace Jaberah.Controllers
                 {
                     x.Student.StudentName,
                     Save = x.FollowStudentInMonthRows
-            .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
-            .Select(y => new
-            {
-                FromSurah = y.WithTeacher.From.SurahName,
-                FromVerse = y.WithTeacher.From.Verse,
-                ToSurah = y.WithTeacher.To.SurahName,
-                ToVerse = y.WithTeacher.To.Verse,
-                y.WithTeacher.Pages,
-                y.WithTeacher.Rate
-            }),
+                    .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
+                    .Select(y => new
+                    {
+                        FromSurah = y.WithTeacher.From.SurahName,
+                        FromVerse = y.WithTeacher.From.Verse,
+                        ToSurah = y.WithTeacher.To.SurahName,
+                        ToVerse = y.WithTeacher.To.Verse,
+                        y.WithTeacher.Pages,
+                        y.WithTeacher.Rate
+                    }),
                     Review = x.FollowStudentInMonthRows
-            .Where(y => y.WithFriend != null && y.WithFriend.From != null && y.WithFriend.To != null)
-            .Select(y => new
-            {
-                FromSurah = y.WithFriend.From.SurahName,
-                FromVerse = y.WithFriend.From.Verse,
-                ToSurah = y.WithFriend.To.SurahName,
-                ToVerse = y.WithFriend.To.Verse,
-                y.WithFriend.Pages,
-                y.WithFriend.Rate
-            }),
+                    .Where(y => y.WithFriend != null && y.WithFriend.From != null && y.WithFriend.To != null)
+                    .Select(y => new
+                    {
+                        FromSurah = y.WithFriend.From.SurahName,
+                        FromVerse = y.WithFriend.From.Verse,
+                        ToSurah = y.WithFriend.To.SurahName,
+                        ToVerse = y.WithFriend.To.Verse,
+                        y.WithFriend.Pages,
+                        y.WithFriend.Rate
+                    }),
                     Attendance = x.FollowStudentInMonthRows.Sum(y => y.Attendance),
                     Behavior = x.FollowStudentInMonthRows.Sum(y => y.Behavior),
                     OralExam = x.Exams != null ? x.Exams.OralExam : 0,

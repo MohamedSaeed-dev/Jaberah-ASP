@@ -24,16 +24,19 @@ namespace Jaberah.Controllers
             }
 
             HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime date = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
+            DateTime fromDate = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
 
-            var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date == date)
+            int daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
+            DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
+
+            var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date >= fromDate && x.Date <= toDate)
                 .SelectMany(x => x.TeachersAttendancesRows)
                 .GroupBy(x => x.Teacher.TeacherName)
                 .Select(x => new GetTeachersAttendancesReportForMonth
                 {
                     TeacherName = x.Key,
-                    IsExcuseNo = x.Count(y => y.IsExcuse),
-                    SignatureNo = x.Count(y => y.Signature)
+                    IsExcuseNo = x.Count(y => y.IsExcuse.HasValue && y.IsExcuse.Value),
+                    SignatureNo = x.Count(y => y.Signature.HasValue && y.Signature.Value)
                 }).AsQueryable();
 
 
@@ -44,8 +47,8 @@ namespace Jaberah.Controllers
             });
 
             var missingAttendanceQuery = allTeachersQuery
-                .Where(t => !_db.TeacherAttendances
-                    .Where(ts => ts.Date == date)
+                .Where(t => !_db.TeacherAttendances.AsNoTracking()
+                    .Where(x => x.Date >= fromDate && x.Date <= toDate)
                     .SelectMany(ts => ts.TeachersAttendancesRows)
                     .Select(sr => sr.TeacherId)
                     .Contains(t.Id))
@@ -60,14 +63,11 @@ namespace Jaberah.Controllers
                 .Union(missingAttendanceQuery)
                 .AsQueryable();
 
-            var pagedCombinedQuery = await combinedQuery.Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-                .ToListAsync();
-            return Ok(pagedCombinedQuery.ToPagedList(combinedQuery.Count(), pageNumber, pageSize));
+            return Ok(await combinedQuery.ToPagedListAsync(pageNumber, pageSize));
         }
 
         [HttpGet("for-day-report")]
-        public async Task<IActionResult> GetTeachersAttendancesReportForDay([FromQuery] DateTime date, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetTeachersAttendancesForDay([FromQuery] DateTime date, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             if (date.Equals(default))
             {
@@ -76,9 +76,10 @@ namespace Jaberah.Controllers
             HijriCalendar hijriCalendar = new HijriCalendar();
             DateTime parsedDate = hijriCalendar.ToDateTime(date.Year, date.Month, date.Day, 0, 0, 0, 0);
 
-            var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date == date).SelectMany(x => x.TeachersAttendancesRows)
-                .Select(x => new GetTeachersAttendancesReportForDay
+            var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date == parsedDate).SelectMany(x => x.TeachersAttendancesRows)
+                .Select(x => new GetTeachersAttendancesForDay
                 {
+                    Id = x.TeacherId,
                     TeacherName = x.Teacher.TeacherName,
                     IsExcuse = x.IsExcuse,
                     Signature = x.Signature,
@@ -91,15 +92,16 @@ namespace Jaberah.Controllers
             });
 
             var missingAttendanceQuery = allTeachersQuery
-                .Where(t => !_db.TeacherAttendances
+                .Where(t => !_db.TeacherAttendances.AsNoTracking()
                     .Where(ts => ts.Date == date)
                     .SelectMany(ts => ts.TeachersAttendancesRows)
                     .Select(sr => sr.TeacherId)
                     .Contains(t.Id))
-                .Select(t => new GetTeachersAttendancesReportForDay
+                .Select(t => new GetTeachersAttendancesForDay
                 {
+                    Id = t.Id,
                     TeacherName = t.TeacherName,
-                    IsExcuse = false,
+                    IsExcuse = null,
                     Signature = false,
                 });
 
@@ -107,10 +109,7 @@ namespace Jaberah.Controllers
                 .Union(missingAttendanceQuery)
                 .AsQueryable();
 
-            var pagedCombinedQuery = await combinedQuery.Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-                .ToListAsync();
-            return Ok(pagedCombinedQuery.ToPagedList(combinedQuery.Count(), pageNumber, pageSize));
+            return Ok(await combinedQuery.ToPagedListAsync(pageNumber, pageSize));
         }
 
         [HttpPost]
@@ -121,11 +120,20 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
             }
 
+            if (model.Exists(x => x.TeacherId <= 0)) return BadRequest(new { message = "ادخل id صحيح" });
+
+            if (model.Exists(x => !(x.IsExcuse.HasValue ^ x.Signature.HasValue)))
+            {
+                return BadRequest(new { message = "ادخل فقط قيمة واحدة للمعلم (حاضر أو غائب بعذر)" });
+            }
+
+
+
             HijriCalendar hijriCalendar = new HijriCalendar();
             DateTime parsedDate = hijriCalendar.ToDateTime(date.Year, date.Month, date.Day, 0, 0, 0, 0);
 
             var existingRecord = await _db.TeacherAttendances
-                .Where(x => x.Date == date)
+                .Where(x => x.Date == parsedDate)
                 .Include(x => x.TeachersAttendancesRows)
                 .FirstOrDefaultAsync();
 
@@ -138,16 +146,16 @@ namespace Jaberah.Controllers
                 {
                     if (attendanceRowsDictionary.TryGetValue(dto.TeacherId, out var attendanceRow))
                     {
-                        attendanceRow.IsExcuse = dto.Data.IsExcuse ?? attendanceRow.IsExcuse;
-                        attendanceRow.Signature = dto.Data.Signature ?? attendanceRow.Signature;
+                        attendanceRow.IsExcuse = dto.IsExcuse ?? attendanceRow.IsExcuse;
+                        attendanceRow.Signature = dto.Signature ?? attendanceRow.Signature;
                     }
                     else
                     {
                         existingRecord.TeachersAttendancesRows.Add(new TeachersAttendancesRow
                         {
                             TeacherId = dto.TeacherId,
-                            IsExcuse = dto.Data.IsExcuse ?? false,
-                            Signature = dto.Data.Signature ?? false
+                            IsExcuse = dto.IsExcuse,
+                            Signature = dto.Signature
                         });
                     }
                 }
@@ -156,12 +164,12 @@ namespace Jaberah.Controllers
             {
                 var newAttendanceRecord = new TeachersAttendances
                 {
-                    Date = date,
+                    Date = parsedDate,
                     TeachersAttendancesRows = model.Select(dto => new TeachersAttendancesRow
                     {
                         TeacherId = dto.TeacherId,
-                        IsExcuse = dto.Data.IsExcuse ?? false,
-                        Signature = dto.Data.Signature ?? false
+                        IsExcuse = dto.IsExcuse,
+                        Signature = dto.Signature
                     }).ToList()
                 };
 
@@ -176,53 +184,50 @@ namespace Jaberah.Controllers
 
 
 
-        [HttpGet("for-day")]
-        public async Task<IActionResult> GetTeachersAttendancesForDay([FromQuery] int year, [FromQuery] int month, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
-        {
-            if (year <= 0 || month <= 0)
-            {
-                return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
-            }
+        //[HttpGet("for-day")]
+        //public async Task<IActionResult> GetTeachersAttendancesForDay([FromQuery] int year, [FromQuery] int month, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        //{
+        //    if (year <= 0 || month <= 0)
+        //    {
+        //        return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
+        //    }
 
-            HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime date = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
+        //    HijriCalendar hijriCalendar = new HijriCalendar();
+        //    DateTime date = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
 
-            var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date == date).SelectMany(x => x.TeachersAttendancesRows).Select(x => new
-            {
-                TeacherId = x.Id,
-                x.Teacher.TeacherName,
-                x.IsExcuse,
-                x.Signature
-            });
-            var allTeachersQuery = _db.Teachers.Select(x => new
-            {
-                x.Id,
-                x.TeacherName
-            });
+        //    var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date == date).SelectMany(x => x.TeachersAttendancesRows).Select(x => new
+        //    {
+        //        TeacherId = x.Id,
+        //        x.Teacher.TeacherName,
+        //        x.IsExcuse,
+        //        x.Signature
+        //    });
+        //    var allTeachersQuery = _db.Teachers.Select(x => new
+        //    {
+        //        x.Id,
+        //        x.TeacherName
+        //    });
 
-            var missingAttendanceQuery = allTeachersQuery
-                .Where(t => !_db.TeacherAttendances
-                    .Where(ts => ts.Date == date)
-                    .SelectMany(ts => ts.TeachersAttendancesRows)
-                    .Select(sr => sr.TeacherId)
-                    .Contains(t.Id))
-                .Select(t => new
-                {
-                    TeacherId = t.Id,
-                    t.TeacherName,
-                    IsExcuse = false,
-                    Signature = false,
-                });
+        //    var missingAttendanceQuery = allTeachersQuery
+        //        .Where(t => !_db.TeacherAttendances
+        //            .Where(ts => ts.Date == date)
+        //            .SelectMany(ts => ts.TeachersAttendancesRows)
+        //            .Select(sr => sr.TeacherId)
+        //            .Contains(t.Id))
+        //        .Select(t => new
+        //        {
+        //            TeacherId = t.Id,
+        //            t.TeacherName,
+        //            IsExcuse = false,
+        //            Signature = false,
+        //        });
 
-            var combinedQuery = attendancesQuery
-                .Union(missingAttendanceQuery)
-                .OrderBy(x => x.TeacherId)
-                .AsQueryable();
+        //    var combinedQuery = attendancesQuery
+        //        .Union(missingAttendanceQuery)
+        //        .OrderBy(x => x.TeacherId)
+        //        .AsQueryable();
 
-            var pagedCombinedQuery = await combinedQuery.Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-                .ToListAsync();
-            return Ok(pagedCombinedQuery.ToPagedList(combinedQuery.Count(), pageNumber, pageSize));
-        }
+        //    return Ok(await combinedQuery.ToPagedListAsync(pageNumber, pageSize));
+        //}
     }
 }

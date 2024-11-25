@@ -21,6 +21,7 @@ namespace Jaberah.Controllers
             {
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
             }
+            if (studentId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
             if (!await _db.Students.AnyAsync(x => x.Id == studentId))
             {
                 return BadRequest(new { message = "لايوجد طالب" });
@@ -84,7 +85,7 @@ namespace Jaberah.Controllers
             {
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
             }
-
+            if (studentId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
             if (!await _db.Students.AnyAsync(x => x.Id == studentId))
             {
                 return BadRequest(new { message = "لايوجد طالب" });
@@ -154,7 +155,7 @@ namespace Jaberah.Controllers
             {
                 return BadRequest(new { message = "ادخل تاريخ صحيح" });
             }
-
+            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
             if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
             {
                 return BadRequest(new { message = "لاتوجد حلقة" });
@@ -238,7 +239,7 @@ namespace Jaberah.Controllers
             {
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
             }
-
+            if (model.StudentId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
             if (!await _db.Students.AnyAsync(x => x.Id == model.StudentId))
             {
                 return BadRequest(new { message = "لايوجد طالب" });

@@ -17,6 +17,7 @@ namespace Jaberah.Controllers
         [HttpPost("monthly-exam")]
         public async Task<IActionResult> UpsertMonthlyExams([FromQuery] int followStudentId, [FromBody] UpsertMonthlyExamsDTO model)
         {
+            if (followStudentId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
             if (!await _db.FollowStudentsInMonth.AnyAsync(x => x.Id == followStudentId))
             {
                 return BadRequest(new { message = "لايوجد متابعة الطالب" });
@@ -31,8 +32,8 @@ namespace Jaberah.Controllers
             }
             else // insert
             {
-                model.PaperExam = model.PaperExam ?? 0;
-                model.OralExam = model.OralExam ?? 0;
+                model.PaperExam ??= 0;
+                model.OralExam ??= 0;
                 var newExam = _mapper.Map<Exam>(model);
                 newExam.FollowStudentInMonthId = followStudentId;
                 await _db.Exams.AddAsync(newExam);

@@ -70,6 +70,7 @@ namespace Jaberah.Controllers
         [HttpPut("{studentId}")]
         public async Task<IActionResult> UpdateStudent(int studentId, [FromBody] UpdateStudentDTO model)
         {
+            if (studentId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
             var student = await _db.Students
                 .FirstOrDefaultAsync(s => s.Id == studentId);
 
@@ -95,7 +96,7 @@ namespace Jaberah.Controllers
             student.SchoolLevel = !string.IsNullOrWhiteSpace(model.SchoolLevel) ? model.SchoolLevel : student.SchoolLevel;
             student.MemoRate = !string.IsNullOrWhiteSpace(model.MemoRate) ? model.MemoRate : student.MemoRate;
             student.Notes = model.Notes is not null ? model.Notes : student.Notes;
-            student.GroupId = model.GroupId.HasValue ? model.GroupId.Value : student.GroupId;
+            student.GroupId = model.GroupId ?? student.GroupId;
 
             _db.Students.Update(student);
             await _db.SaveChangesAsync();
@@ -106,6 +107,8 @@ namespace Jaberah.Controllers
         [HttpDelete("{studentId}")]
         public async Task<IActionResult> DeleteStudent(int studentId)
         {
+            if (studentId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
             var student = await _db.Students
                 .FirstOrDefaultAsync(t => t.Id == studentId);
 

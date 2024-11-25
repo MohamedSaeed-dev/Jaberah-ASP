@@ -4,7 +4,6 @@
     {
         public int TeacherId { get; set; }
         public float? Salary { get; set; }
-        public int? DaysAbsence { get; set; }
         public bool? Signature { get; set; }
     }
 }

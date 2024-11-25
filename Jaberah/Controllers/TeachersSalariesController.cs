@@ -65,11 +65,7 @@ namespace Jaberah.Controllers
                 .Union(missingSalariesQuery)
                 .OrderBy(x => x.TeacherId)
                 .AsQueryable();
-
-            var pagedCombinedQuery = await combinedQuery.Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-            return Ok(pagedCombinedQuery.ToPagedList(combinedQuery.Count(), pageNumber, pageSize));
+            return Ok(await combinedQuery.ToPagedListAsync(pageNumber, pageSize));
         }
         [UpsertTeachersSalaries]
         [HttpPost]
@@ -80,11 +76,21 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
             }
 
+            if (model.TeacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
             HijriCalendar hijriCalendar = new HijriCalendar();
             DateTime date = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
 
+            // Get teacher's attendance for the month
+            var teacherAbsenceCount = await _db.TeacherAttendances
+                .Where(a => a.Date.Year == date.Year && a.Date.Month == date.Month)
+                .SelectMany(a => a.TeachersAttendancesRows)
+                .Where(ar => ar.TeacherId == model.TeacherId && (!ar.Signature ?? false))
+                .CountAsync();
+
             var existingRecord = await _db.TeacherSalaries
                 .Where(x => x.Date == date)
+                .Include(x => x.TeachersSalariesRows)
                 .Select(x => new
                 {
                     TeacherSalary = x,
@@ -99,8 +105,10 @@ namespace Jaberah.Controllers
                 if (salaryRow != null)
                 {
                     salaryRow.Salary = model.Salary ?? salaryRow.Salary;
-                    salaryRow.DaysAbsence = model.DaysAbsence;
-                    salaryRow.NetSalary = (model.Salary.HasValue || model.DaysAbsence.HasValue) ? Math.Max(0, ((model.Salary ?? salaryRow.Salary) - ((model.Salary ?? salaryRow.Salary) / 30 * (model.DaysAbsence ?? salaryRow.DaysAbsence))) ?? 0) : salaryRow.NetSalary;
+                    salaryRow.DaysAbsence = teacherAbsenceCount;
+                    salaryRow.NetSalary = (model.Salary.HasValue || teacherAbsenceCount != salaryRow.DaysAbsence)
+                        ? Math.Max(0, ((model.Salary ?? salaryRow.Salary) - ((model.Salary ?? salaryRow.Salary) / 30 * teacherAbsenceCount)))
+                        : salaryRow.NetSalary;
                     salaryRow.Signature = model.Signature ?? salaryRow.Signature;
                 }
                 else
@@ -109,8 +117,8 @@ namespace Jaberah.Controllers
                     {
                         TeacherId = model.TeacherId,
                         Salary = model.Salary ?? 0,
-                        DaysAbsence = model.DaysAbsence ?? 0,
-                        NetSalary = Math.Max(0, (model.Salary ?? 0) - ((model.Salary ?? 0) / 30) * (model.DaysAbsence ?? 0)),
+                        DaysAbsence = teacherAbsenceCount,
+                        NetSalary = Math.Max(0, (model.Salary ?? 0) - ((model.Salary ?? 0) / 30) * teacherAbsenceCount),
                         Signature = model.Signature ?? false
                     });
                 }
@@ -126,8 +134,8 @@ namespace Jaberah.Controllers
                         {
                             TeacherId = model.TeacherId,
                             Salary = model.Salary ?? 0,
-                            DaysAbsence = model.DaysAbsence ?? 0,
-                            NetSalary = Math.Max(0, (model.Salary ?? 0) - ((model.Salary ?? 0) / 30) * (model.DaysAbsence ?? 0)),
+                            DaysAbsence = teacherAbsenceCount,
+                            NetSalary = Math.Max(0, (model.Salary ?? 0) - ((model.Salary ?? 0) / 30) * teacherAbsenceCount),
                             Signature = model.Signature ?? false
                         }
                     }
@@ -137,6 +145,7 @@ namespace Jaberah.Controllers
             await _db.SaveChangesAsync();
             return Ok(new { message = "تم تحديث الرواتب بنجاح" });
         }
+
 
 
     }
