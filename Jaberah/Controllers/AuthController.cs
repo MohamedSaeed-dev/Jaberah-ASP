@@ -20,7 +20,7 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> Login([FromBody] LoginDTO model)
         {
             var teacher = await _db.Teachers.AsNoTracking()
-                .FirstOrDefaultAsync(t => t.TeacherName.Trim() == model.Username.Trim());
+                .FirstOrDefaultAsync(t => t.TeacherName == model.Username.Trim());
 
             if (teacher == null)
             {
@@ -41,7 +41,7 @@ namespace Jaberah.Controllers
             {
                 Subject = new ClaimsIdentity(
                 [
-                new Claim(ClaimTypes.Name, teacher.TeacherName.Trim()),
+                new Claim(ClaimTypes.Name, teacher.TeacherName),
                 new Claim("PhoneNumber", teacher.PhoneNumber),
                 new Claim(ClaimTypes.Role, teacher.Role.ToString())
             ]),
@@ -54,7 +54,7 @@ namespace Jaberah.Controllers
             var userData = new
             {
                 teacher.Id,
-                TeacherName = teacher.TeacherName.Trim(),
+                teacher.TeacherName,
                 teacher.PhoneNumber,
                 teacher.Role
             };
