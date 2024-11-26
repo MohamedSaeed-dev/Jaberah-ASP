@@ -26,10 +26,9 @@ namespace Jaberah.Controllers
             {
                 return BadRequest(new { message = "لايوجد طالب" });
             }
-            HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime parsedDate = hijriCalendar.ToDateTime(date.Year, date.Month, date.Day, 0, 0, 0, 0);
-            var followStudentQuery = await _db.FollowStudentsInMonth.AsNoTracking().Where(x => x.StudentId == studentId && parsedDate.Year == x.Date.Year && parsedDate.Month == x.Date.Month).SelectMany(y => y.FollowStudentInMonthRows
-                .Where(x => x.Day == parsedDate.Day).Select(x => new GetFollowStudentForDay
+
+            var followStudentQuery = await _db.FollowStudentsInMonth.AsNoTracking().Where(x => x.StudentId == studentId && date.Year == x.Date.Year && date.Month == x.Date.Month).SelectMany(y => y.FollowStudentInMonthRows
+                .Where(x => x.Day == date.Day).Select(x => new GetFollowStudentForDay
                 {
                     StudentName = y.Student.StudentName,
                     Attendance = x.Attendance,
@@ -90,11 +89,10 @@ namespace Jaberah.Controllers
             {
                 return BadRequest(new { message = "لايوجد طالب" });
             }
-
             HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime fromDate = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
-            int daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
-            DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
+            DateTime fromDate = new DateTime(year, month, 1);
+            var daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
+            DateTime toDate = fromDate.AddDays(daysInMonth);
 
             var followStudentData = await _db.FollowStudentsInMonth.AsNoTracking()
                 .Where(x => x.StudentId == studentId && x.Date >= fromDate && x.Date <= toDate)
@@ -161,9 +159,6 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "لاتوجد حلقة" });
             }
 
-            HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime parsedDate = hijriCalendar.ToDateTime(date.Year, date.Month, date.Day, 0, 0, 0, 0);
-
             var followStudents = await _db.Students.AsNoTracking()
                 .Where(student => student.GroupId == groupId)
                 .Select(student => new
@@ -171,8 +166,8 @@ namespace Jaberah.Controllers
                     student.Id,
                     student.StudentName,
                     FollowDetails = _db.FollowStudentsInMonth.AsNoTracking()
-                        .Where(f => f.StudentId == student.Id && parsedDate.Year == f.Date.Year && parsedDate.Month == f.Date.Month)
-                        .SelectMany(f => f.FollowStudentInMonthRows.Where(x => x.Day == parsedDate.Day).Select(row => new GetFollowStudentForDay
+                        .Where(f => f.StudentId == student.Id && date.Year == f.Date.Year && date.Month == f.Date.Month)
+                        .SelectMany(f => f.FollowStudentInMonthRows.Where(x => x.Day == date.Day).Select(row => new GetFollowStudentForDay
                         {
                             StudentName = student.StudentName,
                             Attendance = row.Attendance,
@@ -243,9 +238,6 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "لايوجد طالب" });
             }
 
-            HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime parsedDate = hijriCalendar.ToDateTime(date.Year, date.Month, date.Day, 0, 0, 0, 0);
-
             var existingFollow = await _db.FollowStudentsInMonth
                 .Include(f => f.FollowStudentInMonthRows).Include(x => x.Student)
                 .Include(x => x.FollowStudentInMonthRows)
@@ -261,11 +253,11 @@ namespace Jaberah.Controllers
                 .ThenInclude(x => x.WithFriend)
                 .ThenInclude(x => x.To)
                 .Include(x => x.Exams)
-                .FirstOrDefaultAsync(x => parsedDate.Year == x.Date.Year && parsedDate.Month == x.Date.Month && x.StudentId == model.StudentId);
+                .FirstOrDefaultAsync(x => date.Year == x.Date.Year && date.Month == x.Date.Month && x.StudentId == model.StudentId);
 
             if (existingFollow != null)
             {
-                UpdateFollowStudent(existingFollow, model, parsedDate.Day);
+                UpdateFollowStudent(existingFollow, model, date.Day);
             }
             else
             {

@@ -24,7 +24,7 @@ namespace Jaberah.Controllers
             }
 
             HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime date = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
+            DateTime date = new DateTime(year, month, 1);
 
             var salariesQuery = _db.TeacherSalaries.AsNoTracking()
                 .Where(x => x.Date == date)
@@ -79,9 +79,8 @@ namespace Jaberah.Controllers
             if (model.TeacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
 
             HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime date = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
+            DateTime date = new DateTime(year, month, 1);
 
-            // Get teacher's attendance for the month
             var teacherAbsenceCount = await _db.TeacherAttendances
                 .Where(a => a.Date.Year == date.Year && a.Date.Month == date.Month)
                 .SelectMany(a => a.TeachersAttendancesRows)

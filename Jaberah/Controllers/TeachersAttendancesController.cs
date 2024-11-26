@@ -24,10 +24,9 @@ namespace Jaberah.Controllers
             }
 
             HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime fromDate = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
-
-            int daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
-            DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
+            DateTime fromDate = new DateTime(year, month, 1);
+            var daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
+            DateTime toDate = fromDate.AddDays(daysInMonth);
 
             var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date >= fromDate && x.Date <= toDate)
                 .SelectMany(x => x.TeachersAttendancesRows)
@@ -73,10 +72,8 @@ namespace Jaberah.Controllers
             {
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
             }
-            HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime parsedDate = hijriCalendar.ToDateTime(date.Year, date.Month, date.Day, 0, 0, 0, 0);
 
-            var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date == parsedDate).SelectMany(x => x.TeachersAttendancesRows)
+            var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date == date).SelectMany(x => x.TeachersAttendancesRows)
                 .Select(x => new GetTeachersAttendancesForDay
                 {
                     Id = x.TeacherId,
@@ -127,13 +124,8 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "ادخل فقط قيمة واحدة للمعلم (حاضر أو غائب بعذر)" });
             }
 
-
-
-            HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime parsedDate = hijriCalendar.ToDateTime(date.Year, date.Month, date.Day, 0, 0, 0, 0);
-
             var existingRecord = await _db.TeacherAttendances
-                .Where(x => x.Date == parsedDate)
+                .Where(x => x.Date == date)
                 .Include(x => x.TeachersAttendancesRows)
                 .FirstOrDefaultAsync();
 
@@ -164,7 +156,7 @@ namespace Jaberah.Controllers
             {
                 var newAttendanceRecord = new TeachersAttendances
                 {
-                    Date = parsedDate,
+                    Date = date,
                     TeachersAttendancesRows = model.Select(dto => new TeachersAttendancesRow
                     {
                         TeacherId = dto.TeacherId,

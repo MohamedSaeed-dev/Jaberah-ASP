@@ -24,14 +24,8 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
             }
 
-            HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime fromGreg = hijriCalendar.ToDateTime(fromDate.Year, fromDate.Month, 1, 0, 0, 0, 0);
-
-            int daysInMonth = hijriCalendar.GetDaysInMonth(toDate.Year, toDate.Month);
-            DateTime toGreg = hijriCalendar.ToDateTime(toDate.Year, toDate.Month, daysInMonth, 23, 59, 59, 0);
-
             var grouped = await _db.FollowStudentsInMonth.AsNoTracking()
-                .Where(x => x.Student.GroupId == groupId && x.Date >= fromGreg && x.Date <= toGreg)
+                .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
                 .GroupBy(x => x.Student.StudentName)
                 .Select(g => new
                 {
@@ -71,10 +65,9 @@ namespace Jaberah.Controllers
             }
 
             HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime fromDate = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
-
-            int daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
-            DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
+            DateTime fromDate = new DateTime(year, month, 1);
+            var daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
+            DateTime toDate = fromDate.AddDays(daysInMonth);
 
             var grouped = await _db.FollowStudentsInMonth.AsNoTracking()
                 .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
@@ -160,11 +153,11 @@ namespace Jaberah.Controllers
             {
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
             }
-            HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime fromDate = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
 
-            int daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
-            DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
+            HijriCalendar hijriCalendar = new HijriCalendar();
+            DateTime fromDate = new DateTime(year, month, 1);
+            var daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
+            DateTime toDate = fromDate.AddDays(daysInMonth);
 
             var grouped = await _db.FollowStudentsInMonth.AsNoTracking()
                 .Where(x => x.Date >= fromDate && x.Date <= toDate)
@@ -254,10 +247,9 @@ namespace Jaberah.Controllers
             }
 
             HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime fromDate = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
-
-            int daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
-            DateTime toDate = hijriCalendar.ToDateTime(year, month, daysInMonth, 23, 59, 59, 0);
+            DateTime fromDate = new DateTime(year, month, 1);
+            var daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
+            DateTime toDate = fromDate.AddDays(daysInMonth);
 
             var grouped = await _db.FollowStudentsInMonth.AsNoTracking()
                 .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
