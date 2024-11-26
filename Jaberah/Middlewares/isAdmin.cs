@@ -9,9 +9,7 @@ namespace Jaberah.Middlewares
     {
         public override void OnActionExecuting(ActionExecutingContext context)
         {
-            UserViewModel? user = context.HttpContext.Items["User"] as UserViewModel;
-
-            if (user == null || user.Role != "ADMIN")
+            if (context.HttpContext.Items["User"] is not UserViewModel user || user.Role != "ADMIN")
             {
                 context.Result = new ForbidResult();
                 return;
