@@ -16,7 +16,7 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> SendNotification([FromBody] NotificationsDTO message)
         {
             var notification = _mapper.Map<Notification>(message);
-            _db.Notifications.Add(notification);
+            await _db.Notifications.AddAsync(notification);
             await _db.SaveChangesAsync();
             return Ok(new { message = "تم ارسال الاشعار بنجاح" });
         }
