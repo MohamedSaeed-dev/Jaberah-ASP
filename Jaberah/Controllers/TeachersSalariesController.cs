@@ -103,7 +103,7 @@ namespace Jaberah.Controllers
 
                 if (salaryRow != null)
                 {
-                    salaryRow.Salary = model.Salary ?? salaryRow.Salary;
+                    salaryRow.Salary = Math.Max(model.Salary ?? salaryRow.Salary, 0);
                     salaryRow.DaysAbsence = teacherAbsenceCount;
                     salaryRow.NetSalary = (model.Salary.HasValue || teacherAbsenceCount != salaryRow.DaysAbsence)
                         ? Math.Max(0, ((model.Salary ?? salaryRow.Salary) - ((model.Salary ?? salaryRow.Salary) / 30 * teacherAbsenceCount)))
@@ -115,7 +115,7 @@ namespace Jaberah.Controllers
                     existingRecord.TeacherSalary.TeachersSalariesRows.Add(new TeachersSalariesRow
                     {
                         TeacherId = model.TeacherId,
-                        Salary = model.Salary ?? 0,
+                        Salary = Math.Max(model.Salary ?? 0, 0),
                         DaysAbsence = teacherAbsenceCount,
                         NetSalary = Math.Max(0, (model.Salary ?? 0) - ((model.Salary ?? 0) / 30) * teacherAbsenceCount),
                         Signature = model.Signature ?? false
@@ -132,7 +132,7 @@ namespace Jaberah.Controllers
                         new ()
                         {
                             TeacherId = model.TeacherId,
-                            Salary = model.Salary ?? 0,
+                            Salary = Math.Max(model.Salary ?? 0, 0),
                             DaysAbsence = teacherAbsenceCount,
                             NetSalary = Math.Max(0, (model.Salary ?? 0) - ((model.Salary ?? 0) / 30) * teacherAbsenceCount),
                             Signature = model.Signature ?? false

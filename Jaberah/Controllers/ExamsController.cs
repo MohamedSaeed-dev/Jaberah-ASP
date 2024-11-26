@@ -26,8 +26,8 @@ namespace Jaberah.Controllers
 
             if (exam is not null) // update
             {
-                exam.OralExam = model.OralExam ?? exam.OralExam;
-                exam.PaperExam = model.PaperExam ?? exam.PaperExam;
+                exam.PaperExam = Math.Max(Math.Min(model.PaperExam ?? exam.PaperExam, 20), 0);
+                exam.OralExam = Math.Max(Math.Min(model.OralExam ?? exam.OralExam, 10), 0); ;
                 _db.Exams.Update(exam);
             }
             else // insert

@@ -73,7 +73,7 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> AddTeacher([FromBody] AddTeacherDTO model)
         {
             var existingTeacher = await _db.Teachers
-                .FirstOrDefaultAsync(t => t.TeacherName == model.TeacherName);
+                .FirstOrDefaultAsync(t => t.TeacherName == model.TeacherName.Trim());
 
             if (existingTeacher != null)
             {
@@ -100,6 +100,7 @@ namespace Jaberah.Controllers
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(model.PhoneNumber);
 
             var newTeacher = _mapper.Map<Teacher>(model);
+            newTeacher.TeacherName = newTeacher.TeacherName.Trim();
             newTeacher.Password = hashedPassword;
             newTeacher.Role = Role.TEACHER;
             newTeacher.Groups = groups;
@@ -154,7 +155,7 @@ namespace Jaberah.Controllers
                 teacher.Password = BCrypt.Net.BCrypt.HashPassword(model.NewPassword);
             }
 
-            teacher.TeacherName = string.IsNullOrEmpty(model.TeacherName) ? teacher.TeacherName : model.TeacherName;
+            teacher.TeacherName = string.IsNullOrEmpty(model.TeacherName) ? teacher.TeacherName.Trim() : model.TeacherName.Trim();
             teacher.PhoneNumber = string.IsNullOrEmpty(model.PhoneNumber) ? teacher.PhoneNumber : model.PhoneNumber;
 
             if (model.GroupsId != null && model.GroupsId.Count > 0)
