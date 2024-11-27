@@ -1,6 +1,6 @@
 ﻿namespace Jaberah.Models.JaberahModels
 {
-    public class FollowStudentInMonthRow
+    public class FollowStudentRow
     {
         public int Id { get; set; }
         public int Day { get; set; }
@@ -10,8 +10,8 @@
         public WithTeacherFriend WithFriend { get; set; }
         public byte Attendance { get; set; }
         public byte Behavior { get; set; }
-        public int FollowStudentInMonthId { get; set; }
-        public FollowStudentInMonth FollowStudentInMonth { get; set; }
+        public int FollowStudentsId { get; set; }
+        public FollowStudent FollowStudents { get; set; }
     }
     public class WithTeacherFriend
     {

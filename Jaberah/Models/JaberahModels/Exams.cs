@@ -5,7 +5,7 @@
         public int Id { get; set; }
         public float PaperExam { get; set; }
         public float OralExam { get; set; }
-        public int FollowStudentInMonthId { get; set; }
-        public FollowStudentInMonth FollowStudentInMonth { get; set; }
+        public int FollowStudentsId { get; set; }
+        public FollowStudent FollowStudents { get; set; }
     }
 }

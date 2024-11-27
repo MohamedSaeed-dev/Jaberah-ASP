@@ -20,18 +20,19 @@ namespace Jaberah.Controllers
         private readonly IMapper _mapper = mapper;
 
         [HttpGet]
-        public async Task<IActionResult> GetGroups([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetGroups([FromQuery] bool withoutTeacher, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var query = _db.Groups.AsNoTracking()
-                .Select(x => new
-                {
-                    x.GroupName,
-                    x.Period,
-                    x.Teacher.TeacherName,
-                    StudentsCount = x.Students.Count,
-                }).AsQueryable();
+            var query = _db.Groups.AsNoTracking().AsQueryable();
 
-            var pagedGroups = (await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
+            if (withoutTeacher) query = query.Where(x => x.Teacher == null).AsQueryable();
+            var groups = query.Select(x => new
+            {
+                x.GroupName,
+                x.Period,
+                x.Teacher.TeacherName,
+                StudentsCount = x.Students.Count,
+            }).AsQueryable();
+            var pagedGroups = (await groups.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
                             .Select(x => new GetGroupsForView
                             {
                                 GroupName = x.GroupName,
@@ -39,7 +40,7 @@ namespace Jaberah.Controllers
                                 TeacherName = x.TeacherName,
                                 StudentsNo = x.StudentsCount
                             })
-                            .ToPagedList(await query.CountAsync(), pageNumber, pageSize);
+                            .ToPagedList(await groups.CountAsync(), pageNumber, pageSize);
 
             return Ok(pagedGroups);
         }

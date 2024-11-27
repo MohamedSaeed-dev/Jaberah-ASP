@@ -15,13 +15,14 @@ namespace Jaberah.Models.MyDbContext
         public DbSet<Student> Students { get; set; }
         public DbSet<TeachersAttendances> TeacherAttendances { get; set; }
         public DbSet<TeachersAttendancesRow> TeacherAttendanceRows { get; set; }
-        public DbSet<FollowStudentInMonth> FollowStudentsInMonth { get; set; }
-        public DbSet<FollowStudentInMonthRow> FollowStudentInMonthRows { get; set; }
+        public DbSet<FollowStudent> FollowStudents { get; set; }
+        public DbSet<FollowStudentRow> FollowStudentRows { get; set; }
         public DbSet<Exam> Exams { get; set; }
         public DbSet<TeachersSalaries> TeacherSalaries { get; set; }
         public DbSet<TeachersSalariesRow> TeacherSalariesRows { get; set; }
         public DbSet<WithTeacherFriend> WithTeacherFriends { get; set; }
         public DbSet<Surah> Surahs { get; set; }
+        public DbSet<MidFinal> MidFinals { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -30,31 +31,42 @@ namespace Jaberah.Models.MyDbContext
             {
                 entity.HasKey(e => e.Id);
 
-                entity.HasOne(e => e.FollowStudentInMonth)
+                entity.HasOne(e => e.FollowStudents)
                       .WithOne(f => f.Exams)
-                      .HasForeignKey<Exam>(e => e.FollowStudentInMonthId)
+                      .HasForeignKey<Exam>(e => e.FollowStudentsId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // FollowStudentInMonth
-            modelBuilder.Entity<FollowStudentInMonth>(entity =>
+            // MidFinal
+            modelBuilder.Entity<MidFinal>(x =>
+            {
+                x.HasKey(a => a.Id);
+
+                x.HasOne(a => a.Student)
+                .WithMany(a => a.MidFinals)
+                .HasForeignKey(a => a.StudentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // FollowStudents
+            modelBuilder.Entity<FollowStudent>(entity =>
             {
                 entity.HasKey(f => f.Id);
                 entity.Property(f => f.Date).IsRequired();
 
                 entity.HasOne(f => f.Student)
-                      .WithMany(s => s.FollowStudentInMonth)
+                      .WithMany()
                       .HasForeignKey(f => f.StudentId)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                entity.HasMany(f => f.FollowStudentInMonthRows)
-                      .WithOne(row => row.FollowStudentInMonth)
-                      .HasForeignKey(row => row.FollowStudentInMonthId)
+                entity.HasMany(f => f.FollowStudentsRows)
+                      .WithOne(row => row.FollowStudents)
+                      .HasForeignKey(row => row.FollowStudentsId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // FollowStudentInMonthRow
-            modelBuilder.Entity<FollowStudentInMonthRow>(entity =>
+            // FollowStudentsRow
+            modelBuilder.Entity<FollowStudentRow>(entity =>
             {
                 entity.HasKey(row => row.Id);
 
@@ -68,9 +80,9 @@ namespace Jaberah.Models.MyDbContext
                       .HasForeignKey(row => row.WithFriendId)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                entity.HasOne(row => row.FollowStudentInMonth)
-                      .WithMany(f => f.FollowStudentInMonthRows)
-                      .HasForeignKey(row => row.FollowStudentInMonthId)
+                entity.HasOne(row => row.FollowStudents)
+                      .WithMany(f => f.FollowStudentsRows)
+                      .HasForeignKey(row => row.FollowStudentsId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 

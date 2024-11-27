@@ -27,7 +27,7 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "لايوجد طالب" });
             }
 
-            var followStudentQuery = await _db.FollowStudentsInMonth.AsNoTracking().Where(x => x.StudentId == studentId && date.Year == x.Date.Year && date.Month == x.Date.Month).SelectMany(y => y.FollowStudentInMonthRows
+            var followStudentQuery = await _db.FollowStudents.AsNoTracking().Where(x => x.StudentId == studentId && date.Year == x.Date.Year && date.Month == x.Date.Month).SelectMany(y => y.FollowStudentsRows
                 .Where(x => x.Day == date.Day).Select(x => new GetFollowStudentForDay
                 {
                     StudentName = y.Student.StudentName,
@@ -94,9 +94,9 @@ namespace Jaberah.Controllers
             var daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
             DateTime toDate = fromDate.AddDays(daysInMonth);
 
-            var followStudentData = await _db.FollowStudentsInMonth.AsNoTracking()
+            var followStudentData = await _db.FollowStudents.AsNoTracking()
                 .Where(x => x.StudentId == studentId && x.Date >= fromDate && x.Date <= toDate)
-                .SelectMany(x => x.FollowStudentInMonthRows.Select(row => new GetFollowStudentForMonth
+                .SelectMany(x => x.FollowStudentsRows.Select(row => new GetFollowStudentForMonth
                 {
                     Day = row.Day,
                     Attendance = row.Attendance,
@@ -165,9 +165,9 @@ namespace Jaberah.Controllers
                 {
                     student.Id,
                     student.StudentName,
-                    FollowDetails = _db.FollowStudentsInMonth.AsNoTracking()
+                    FollowDetails = _db.FollowStudents.AsNoTracking()
                         .Where(f => f.StudentId == student.Id && date.Year == f.Date.Year && date.Month == f.Date.Month)
-                        .SelectMany(f => f.FollowStudentInMonthRows.Where(x => x.Day == date.Day).Select(row => new GetFollowStudentForDay
+                        .SelectMany(f => f.FollowStudentsRows.Where(x => x.Day == date.Day).Select(row => new GetFollowStudentForDay
                         {
                             StudentName = student.StudentName,
                             Attendance = row.Attendance,
@@ -238,18 +238,18 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "لايوجد طالب" });
             }
 
-            var existingFollow = await _db.FollowStudentsInMonth
-                .Include(f => f.FollowStudentInMonthRows).Include(x => x.Student)
-                .Include(x => x.FollowStudentInMonthRows)
+            var existingFollow = await _db.FollowStudents
+                .Include(f => f.FollowStudentsRows).Include(x => x.Student)
+                .Include(x => x.FollowStudentsRows)
                 .ThenInclude(y => y.WithTeacher)
                 .ThenInclude(x => x.From)
-                .Include(x => x.FollowStudentInMonthRows)
+                .Include(x => x.FollowStudentsRows)
                 .ThenInclude(x => x.WithTeacher)
                 .ThenInclude(x => x.To)
-                .Include(x => x.FollowStudentInMonthRows)
+                .Include(x => x.FollowStudentsRows)
                 .ThenInclude(y => y.WithFriend)
                 .ThenInclude(x => x.From)
-                .Include(x => x.FollowStudentInMonthRows)
+                .Include(x => x.FollowStudentsRows)
                 .ThenInclude(x => x.WithFriend)
                 .ThenInclude(x => x.To)
                 .Include(x => x.Exams)
@@ -271,11 +271,11 @@ namespace Jaberah.Controllers
 
         private async void CreateFollowStudent(DateTime date, UpsertFollowStudentsDTO model)
         {
-            var newFollow = new FollowStudentInMonth
+            var newFollow = new FollowStudent
             {
                 Date = date,
                 StudentId = model.StudentId,
-                FollowStudentInMonthRows = new List<FollowStudentInMonthRow>
+                FollowStudentsRows = new List<FollowStudentRow>
                 {
                     new()
                     {
@@ -315,26 +315,26 @@ namespace Jaberah.Controllers
                     }
                 }
             };
-            await _db.FollowStudentsInMonth.AddAsync(newFollow);
+            await _db.FollowStudents.AddAsync(newFollow);
         }
-        private void UpdateFollowStudent(FollowStudentInMonth existingFollow, UpsertFollowStudentsDTO model, int day)
+        private void UpdateFollowStudent(FollowStudent existingFollow, UpsertFollowStudentsDTO model, int day)
         {
-            var row = existingFollow.FollowStudentInMonthRows.FirstOrDefault(r => r.Day == day);
+            var row = existingFollow.FollowStudentsRows.FirstOrDefault(r => r.Day == day);
             if (row is not null)
             {
                 UpdateFollowStudentRow(row, model);
             }
             else
             {
-                existingFollow.FollowStudentInMonthRows.Add(CreateFollowStudentRow(model, existingFollow.Id, day));
+                existingFollow.FollowStudentsRows.Add(CreateFollowStudentRow(model, existingFollow.Id, day));
             }
         }
-        private FollowStudentInMonthRow CreateFollowStudentRow(UpsertFollowStudentsDTO model, int followId, int day)
+        private FollowStudentRow CreateFollowStudentRow(UpsertFollowStudentsDTO model, int followId, int day)
         {
-            return new FollowStudentInMonthRow
+            return new FollowStudentRow
             {
                 Day = day,
-                FollowStudentInMonthId = followId,
+                FollowStudentsId = followId,
                 Attendance = Math.Max(Math.Min(model.Attendance ?? 0, (byte)1), (byte)0),
                 Behavior = Math.Max(Math.Min(model.Behavior ?? 0, (byte)1), (byte)0),
                 WithTeacher = new WithTeacherFriend
@@ -369,7 +369,7 @@ namespace Jaberah.Controllers
                 }
             };
         }
-        private void UpdateFollowStudentRow(FollowStudentInMonthRow row, UpsertFollowStudentsDTO model)
+        private void UpdateFollowStudentRow(FollowStudentRow row, UpsertFollowStudentsDTO model)
         {
             row.Attendance = model.Attendance ?? row.Attendance;
             row.Behavior = model.Behavior ?? row.Behavior;

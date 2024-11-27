@@ -18,28 +18,65 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> UpsertMonthlyExams([FromQuery] int followStudentId, [FromBody] UpsertMonthlyExamsDTO model)
         {
             if (followStudentId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
-            if (!await _db.FollowStudentsInMonth.AnyAsync(x => x.Id == followStudentId))
+            if (!await _db.FollowStudents.AnyAsync(x => x.Id == followStudentId))
             {
                 return BadRequest(new { message = "لايوجد متابعة الطالب" });
             }
-            var exam = await _db.Exams.FirstOrDefaultAsync(x => x.FollowStudentInMonthId == followStudentId);
+            var exam = await _db.Exams.FirstOrDefaultAsync(x => x.FollowStudentsId == followStudentId);
 
             if (exam is not null) // update
             {
                 exam.PaperExam = Math.Max(Math.Min(model.PaperExam ?? exam.PaperExam, 20), 0);
-                exam.OralExam = Math.Max(Math.Min(model.OralExam ?? exam.OralExam, 10), 0); ;
+                exam.OralExam = Math.Max(Math.Min(model.OralExam ?? exam.OralExam, 10), 0);
                 _db.Exams.Update(exam);
             }
             else // insert
             {
-                model.PaperExam ??= 0;
-                model.OralExam ??= 0;
+                model.PaperExam = Math.Max(Math.Min(model.PaperExam ?? 0, 20), 0);
+                model.OralExam = Math.Max(Math.Min(model.OralExam ?? 0, 10), 0);
                 var newExam = _mapper.Map<Exam>(model);
-                newExam.FollowStudentInMonthId = followStudentId;
+                newExam.FollowStudentsId = followStudentId;
                 await _db.Exams.AddAsync(newExam);
             }
             await _db.SaveChangesAsync();
             return Ok(new { message = "تم تحديث الاختبار الشهري بنجاح" });
+        }
+        [HttpPost("mid-final-exam")]
+        public async Task<IActionResult> UpsertMidFinalExam([FromQuery] int studentId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate, [FromBody] float grade)
+        {
+            if (studentId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+            if (!await _db.Students.AnyAsync(x => x.Id == studentId))
+            {
+                return BadRequest(new { message = "لايوجد طالب" });
+            }
+
+            if (fromDate.Equals(default) || toDate.Equals(default))
+            {
+                return BadRequest(new { message = "ادخل تاريخ صحيح" });
+            }
+
+            if ((toDate.Month - fromDate.Month + 12 * (toDate.Year - fromDate.Year)) != 4)
+            {
+                return BadRequest(new { message = "الفارق يجب ان يكون 4 اشهر" });
+            }
+
+            var final = await _db.MidFinals.FirstOrDefaultAsync(x => x.StudentId == studentId && x.FromDate == fromDate && x.ToDate == toDate);
+            if (final is null)
+            {
+                await _db.MidFinals.AddAsync(new MidFinal
+                {
+                    StudentId = studentId,
+                    FromDate = fromDate,
+                    ToDate = toDate,
+                    Grade = grade
+                });
+            }
+            else
+            {
+                final.Grade = grade;
+            }
+            await _db.SaveChangesAsync();
+            return Ok(new { message = "تم الحفظ بنجاح" });
         }
     }
 }

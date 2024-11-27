@@ -16,6 +16,7 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> GetSemesterReport([FromQuery] int groupId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
         {
             if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
             if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
                 return BadRequest(new { message = "لاتوجد حلقة" });
 
@@ -24,33 +25,49 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
             }
 
-            var grouped = await _db.FollowStudentsInMonth.AsNoTracking()
+            int monthsDifference = (toDate.Year - fromDate.Year) * 12 + toDate.Month - fromDate.Month;
+            if (monthsDifference != 4)
+            {
+                return BadRequest(new { message = "الفارق يجب ان يكون 4 اشهر" });
+            }
+
+            var report = await _db.FollowStudents.AsNoTracking()
                 .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
+                .Join(_db.MidFinals.Where(a => a.FromDate == fromDate && a.ToDate == toDate),
+                      a => a.StudentId, b => b.StudentId, (a, b) => new
+                      {
+                          a.Student,
+                          a.FollowStudentsRows,
+                          a.Exams,
+                          b.Grade
+                      })
                 .GroupBy(x => x.Student.StudentName)
                 .Select(g => new
                 {
                     StudentName = g.Key,
-                    AttendanceSum = g.SelectMany(x => x.FollowStudentInMonthRows).Sum(r => r.Attendance),
-                    BehaviorSum = g.SelectMany(x => x.FollowStudentInMonthRows).Sum(r => r.Behavior),
-                    FollowRowCount = g.SelectMany(x => x.FollowStudentInMonthRows).Count(),
+                    AttendanceSum = g.SelectMany(x => x.FollowStudentsRows).Sum(r => r.Attendance),
+                    BehaviorSum = g.SelectMany(x => x.FollowStudentsRows).Sum(r => r.Behavior),
+                    FollowRowCount = g.SelectMany(x => x.FollowStudentsRows).Count(),
                     OralGradeSum = g.Sum(x => x.Exams.OralExam),
                     PaperGradeSum = g.Sum(x => x.Exams.PaperExam),
+                    MidFinalGrade = g.Sum(x => x.Grade)
+                })
+                .Select(x => new SemesterReportForView
+                {
+                    StudentName = x.StudentName,
+                    AttendanceSum = x.AttendanceSum,
+                    BehaviorSum = x.BehaviorSum,
+                    GradeSum = Math.Min(x.FollowRowCount * 0.5, 10.0),
+                    OralGradeSum = x.OralGradeSum,
+                    PaperGradeSum = x.PaperGradeSum,
+                    MidFinalGrade = x.MidFinalGrade,
+                    Total = (x.AttendanceSum + x.BehaviorSum + x.OralGradeSum + x.PaperGradeSum + Math.Min(x.FollowRowCount * 0.5, 10.0)) * 100 / 400
                 })
                 .ToListAsync();
 
-            var result = grouped.Select(x => new SemesterReportForView
-            {
-                StudentName = x.StudentName,
-                AttendanceSum = x.AttendanceSum,
-                BehaviorSum = x.BehaviorSum,
-                GradeSum = Math.Min(x.FollowRowCount * 0.5, 10.0),
-                OralGradeSum = x.OralGradeSum,
-                PaperGradeSum = x.PaperGradeSum,
-                Total = ((x.AttendanceSum + x.BehaviorSum + x.OralGradeSum + x.PaperGradeSum + Math.Min(x.FollowRowCount * 0.5, 10.0)) * 100) / 400
-            }).ToList();
-
-            return Ok(result);
+            return Ok(report);
         }
+
 
         [HttpGet("monthly-report")]
         public async Task<IActionResult> GetMonthlyReport([FromQuery] int groupId, [FromQuery] int year, [FromQuery] int month)
@@ -69,12 +86,12 @@ namespace Jaberah.Controllers
             var daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
             DateTime toDate = fromDate.AddDays(daysInMonth);
 
-            var grouped = await _db.FollowStudentsInMonth.AsNoTracking()
+            var report = await _db.FollowStudents.AsNoTracking()
                 .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
                 .Select(x => new
                 {
                     x.Student.StudentName,
-                    Save = x.FollowStudentInMonthRows
+                    Save = x.FollowStudentsRows
                         .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
                         .Select(y => new
                         {
@@ -85,7 +102,7 @@ namespace Jaberah.Controllers
                             y.WithTeacher.Pages,
                             y.WithTeacher.Rate
                         }),
-                    Review = x.FollowStudentInMonthRows
+                    Review = x.FollowStudentsRows
                         .Where(y => y.WithFriend != null && y.WithFriend.From != null && y.WithFriend.To != null)
                         .Select(y => new
                         {
@@ -96,54 +113,54 @@ namespace Jaberah.Controllers
                             y.WithFriend.Pages,
                             y.WithFriend.Rate
                         }),
-                    Attendance = x.FollowStudentInMonthRows.Sum(y => y.Attendance),
-                    Behavior = x.FollowStudentInMonthRows.Sum(y => y.Behavior),
+                    Attendance = x.FollowStudentsRows.Sum(y => y.Attendance),
+                    Behavior = x.FollowStudentsRows.Sum(y => y.Behavior),
                     OralExam = x.Exams != null ? x.Exams.OralExam : 0,
                     PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
                 })
+                .Select(x => new GetMonthlyReportForView
+                {
+                    StudentName = x.StudentName,
+                    SaveData = new SaveReviewData
+                    {
+                        From = new FromToData
+                        {
+                            SurahName = x.Save.FirstOrDefault()!.FromSurah,
+                            Verse = x.Save.FirstOrDefault()!.FromVerse,
+                        },
+                        To = new FromToData
+                        {
+                            SurahName = x.Save.LastOrDefault()!.ToSurah,
+                            Verse = x.Save.LastOrDefault()!.ToVerse,
+                        },
+                        Pages = x.Save.Sum(y => y.Pages),
+                        Rate = ""
+                    },
+                    ReviewData = new SaveReviewData
+                    {
+                        From = new FromToData
+                        {
+                            SurahName = x.Review.FirstOrDefault()!.FromSurah,
+                            Verse = x.Review.FirstOrDefault()!.FromVerse,
+                        },
+                        To = new FromToData
+                        {
+                            SurahName = x.Review.LastOrDefault()!.ToSurah,
+                            Verse = x.Review.LastOrDefault()!.ToVerse,
+                        },
+                        Pages = x.Review.Sum(y => y.Pages),
+                        Rate = ""
+                    },
+                    AttendanceGrade = x.Attendance,
+                    BehaviorGrade = x.Behavior,
+                    OralGrade = x.OralExam,
+                    PaperGrade = x.PaperExam,
+                    Total = ((x.Attendance + x.Behavior + x.OralExam + x.PaperExam) * 100) / 100
+
+                })
                 .ToListAsync();
 
-            var result = grouped.Select(x => new GetMonthlyReportForView
-            {
-                StudentName = x.StudentName,
-                SaveData = new SaveReviewData
-                {
-                    From = new FromToData
-                    {
-                        SurahName = x.Save.FirstOrDefault()!.FromSurah,
-                        Verse = x.Save.FirstOrDefault()!.FromVerse,
-                    },
-                    To = new FromToData
-                    {
-                        SurahName = x.Save.LastOrDefault()!.ToSurah,
-                        Verse = x.Save.LastOrDefault()!.ToVerse,
-                    },
-                    Pages = x.Save.Sum(y => y.Pages),
-                    Rate = ""
-                },
-                ReviewData = new SaveReviewData
-                {
-                    From = new FromToData
-                    {
-                        SurahName = x.Review.FirstOrDefault()!.FromSurah,
-                        Verse = x.Review.FirstOrDefault()!.FromVerse,
-                    },
-                    To = new FromToData
-                    {
-                        SurahName = x.Review.LastOrDefault()!.ToSurah,
-                        Verse = x.Review.LastOrDefault()!.ToVerse,
-                    },
-                    Pages = x.Review.Sum(y => y.Pages),
-                    Rate = ""
-                },
-                AttendanceGrade = x.Attendance,
-                BehaviorGrade = x.Behavior,
-                OralGrade = x.OralExam,
-                PaperGrade = x.PaperExam,
-                Total = ((x.Attendance + x.Behavior + x.OralExam + x.PaperExam) * 100) / 100
-
-            });
-            return Ok(result);
+            return Ok(report);
         }
 
         [HttpGet("best-students-report")]
@@ -159,12 +176,12 @@ namespace Jaberah.Controllers
             var daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
             DateTime toDate = fromDate.AddDays(daysInMonth);
 
-            var grouped = await _db.FollowStudentsInMonth.AsNoTracking()
+            var grouped = await _db.FollowStudents.AsNoTracking()
                 .Where(x => x.Date >= fromDate && x.Date <= toDate)
                 .Select(x => new
                 {
                     x.Student.StudentName,
-                    Save = x.FollowStudentInMonthRows
+                    Save = x.FollowStudentsRows
                     .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
                     .Select(y => new
                     {
@@ -175,7 +192,7 @@ namespace Jaberah.Controllers
                         y.WithTeacher.Pages,
                         y.WithTeacher.Rate
                     }),
-                    Review = x.FollowStudentInMonthRows
+                    Review = x.FollowStudentsRows
                     .Where(y => y.WithFriend != null && y.WithFriend.From != null && y.WithFriend.To != null)
                     .Select(y => new
                     {
@@ -186,8 +203,8 @@ namespace Jaberah.Controllers
                         y.WithFriend.Pages,
                         y.WithFriend.Rate
                     }),
-                    Attendance = x.FollowStudentInMonthRows.Sum(y => y.Attendance),
-                    Behavior = x.FollowStudentInMonthRows.Sum(y => y.Behavior),
+                    Attendance = x.FollowStudentsRows.Sum(y => y.Attendance),
+                    Behavior = x.FollowStudentsRows.Sum(y => y.Behavior),
                     OralExam = x.Exams != null ? x.Exams.OralExam : 0,
                     PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
                 }).Take(take).ToListAsync();
@@ -251,12 +268,12 @@ namespace Jaberah.Controllers
             var daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
             DateTime toDate = fromDate.AddDays(daysInMonth);
 
-            var grouped = await _db.FollowStudentsInMonth.AsNoTracking()
+            var grouped = await _db.FollowStudents.AsNoTracking()
                 .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
                 .Select(x => new
                 {
                     x.Student.StudentName,
-                    Save = x.FollowStudentInMonthRows
+                    Save = x.FollowStudentsRows
                     .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
                     .Select(y => new
                     {
@@ -267,7 +284,7 @@ namespace Jaberah.Controllers
                         y.WithTeacher.Pages,
                         y.WithTeacher.Rate
                     }),
-                    Review = x.FollowStudentInMonthRows
+                    Review = x.FollowStudentsRows
                     .Where(y => y.WithFriend != null && y.WithFriend.From != null && y.WithFriend.To != null)
                     .Select(y => new
                     {
@@ -278,8 +295,8 @@ namespace Jaberah.Controllers
                         y.WithFriend.Pages,
                         y.WithFriend.Rate
                     }),
-                    Attendance = x.FollowStudentInMonthRows.Sum(y => y.Attendance),
-                    Behavior = x.FollowStudentInMonthRows.Sum(y => y.Behavior),
+                    Attendance = x.FollowStudentsRows.Sum(y => y.Attendance),
+                    Behavior = x.FollowStudentsRows.Sum(y => y.Behavior),
                     OralExam = x.Exams != null ? x.Exams.OralExam : 0,
                     PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
                 }).Take(take).ToListAsync();

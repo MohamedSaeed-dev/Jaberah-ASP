@@ -11,6 +11,7 @@
         public string? Notes { get; set; }
         public int? GroupId { get; set; }
         public Group Group { get; set; }
-        public ICollection<FollowStudentInMonth> FollowStudentInMonth { get; set; }
+        public ICollection<FollowStudent> FollowStudents { get; set; }
+        public ICollection<MidFinal> MidFinals { get; set; }
     }
 }
