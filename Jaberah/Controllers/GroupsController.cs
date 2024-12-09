@@ -27,6 +27,7 @@ namespace Jaberah.Controllers
             if (withoutTeacher) query = query.Where(x => x.Teacher == null).AsQueryable();
             var groups = query.Select(x => new
             {
+                x.Id,
                 x.GroupName,
                 x.Period,
                 x.Teacher.TeacherName,
@@ -35,6 +36,7 @@ namespace Jaberah.Controllers
             var pagedGroups = (await groups.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
                             .Select(x => new GetGroupsForView
                             {
+                                Id = x.Id,
                                 GroupName = x.GroupName,
                                 Period = GetPeriodName((byte)x.Period),
                                 TeacherName = x.TeacherName,
@@ -43,6 +45,17 @@ namespace Jaberah.Controllers
                             .ToPagedList(await groups.CountAsync(), pageNumber, pageSize);
 
             return Ok(pagedGroups);
+        }
+        [HttpGet("for-general-use")]
+        public async Task<IActionResult> GetGroupsForGeneralUse()
+        {
+            var groups = await _db.Groups.AsNoTracking().Select(x => new
+            {
+                x.Id,
+                x.GroupName,
+            }).ToListAsync();
+
+            return Ok(groups);
         }
         [HttpGet("{groupId}")]
         public async Task<IActionResult> GetGroup([FromRoute] int groupId)
@@ -111,7 +124,7 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> GetGroupsWithNoTeacherAndTeacherGroups([FromRoute] int teacherId)
         {
             if (teacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
-            if (!await _db.Teachers.AllAsync(x => x.Id == teacherId))
+            if (!await _db.Teachers.AnyAsync(x => x.Id == teacherId))
             {
                 return BadRequest(new { message = "لايوجد معلم" });
             }

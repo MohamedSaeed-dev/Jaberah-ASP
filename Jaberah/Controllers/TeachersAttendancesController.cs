@@ -16,7 +16,7 @@ namespace Jaberah.Controllers
         private readonly JaberahDBContext _db = db;
 
         [HttpGet("for-month-report")]
-        public async Task<IActionResult> GetTeachersAttendancesReportForMonth([FromQuery] int year, [FromQuery] int month, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetTeachersAttendancesReportForMonth([FromQuery] int year, [FromQuery] int month)
         {
             if (year <= 0 || month <= 0)
             {
@@ -62,11 +62,11 @@ namespace Jaberah.Controllers
                 .Union(missingAttendanceQuery)
                 .AsQueryable();
 
-            return Ok(await combinedQuery.ToPagedListAsync(pageNumber, pageSize));
+            return Ok(await combinedQuery.ToListAsync());
         }
 
         [HttpGet("for-day-report")]
-        public async Task<IActionResult> GetTeachersAttendancesForDay([FromQuery] DateTime date, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetTeachersAttendancesForDay([FromQuery] DateTime date)
         {
             if (date.Equals(default))
             {
@@ -106,7 +106,7 @@ namespace Jaberah.Controllers
                 .Union(missingAttendanceQuery)
                 .AsQueryable();
 
-            return Ok(await combinedQuery.ToPagedListAsync(pageNumber, pageSize));
+            return Ok(await combinedQuery.ToListAsync());
         }
 
         [HttpPost]

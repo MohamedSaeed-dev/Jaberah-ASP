@@ -19,10 +19,10 @@ namespace Jaberah.Controllers
         private readonly IMapper _mapper = mapper;
 
         [HttpGet]
-        public async Task<IActionResult> GetTeachers([FromQuery] string searchText = "", [FromQuery] bool withoutGroup = false, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetTeachers([FromQuery] string searchText = "", [FromQuery] bool withoutGroups = false, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             var query = _db.Teachers.AsNoTracking().Where(x => x.Role == Role.TEACHER && x.TeacherName.Contains(searchText)).AsQueryable();
-            if (withoutGroup) query = query.Where(x => x.Groups == null || x.Groups.Count < 1).AsQueryable();
+            if (withoutGroups) query = query.Where(x => x.Groups == null || x.Groups.Count < 1).AsQueryable();
 
             var selectedQuery = query.Select(x => new GetTeachersForView
             {

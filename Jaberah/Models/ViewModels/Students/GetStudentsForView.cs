@@ -9,6 +9,7 @@
         public string? MemoRate { get; set; }
         public string? SchoolLevel { get; set; }
         public string? Notes { get; set; }
+        public int? GroupId { get; set; }
         public string? GroupName { get; set; }
     }
 }

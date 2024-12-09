@@ -26,6 +26,7 @@ namespace Jaberah.Controllers
             }
 
             int monthsDifference = (toDate.Year - fromDate.Year) * 12 + toDate.Month - fromDate.Month;
+
             if (monthsDifference != 4)
             {
                 return BadRequest(new { message = "الفارق يجب ان يكون 4 اشهر" });
@@ -93,6 +94,7 @@ namespace Jaberah.Controllers
                     x.Student.StudentName,
                     Save = x.FollowStudentsRows
                         .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
+                        .OrderBy(y => y.WithTeacher.From.Verse) // Added ordering
                         .Select(y => new
                         {
                             FromSurah = y.WithTeacher.From.SurahName,
@@ -104,6 +106,7 @@ namespace Jaberah.Controllers
                         }),
                     Review = x.FollowStudentsRows
                         .Where(y => y.WithFriend != null && y.WithFriend.From != null && y.WithFriend.To != null)
+                        .OrderBy(y => y.WithFriend.From.Verse) // Added ordering
                         .Select(y => new
                         {
                             FromSurah = y.WithFriend.From.SurahName,
@@ -163,6 +166,7 @@ namespace Jaberah.Controllers
             return Ok(report);
         }
 
+
         [HttpGet("best-students-report")]
         public async Task<IActionResult> GetBestStudentsReport([FromQuery] int year, [FromQuery] int month, [FromQuery] int take = 5)
         {
@@ -181,6 +185,7 @@ namespace Jaberah.Controllers
                 .Select(x => new
                 {
                     x.Student.StudentName,
+                    x.Student.Group.GroupName,
                     Save = x.FollowStudentsRows
                     .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
                     .Select(y => new
@@ -209,9 +214,10 @@ namespace Jaberah.Controllers
                     PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
                 }).Take(take).ToListAsync();
 
-            var result = grouped.Select(x => new GetMonthlyReportForView
+            var result = grouped.Select(x => new GetBestStudentsReportForView
             {
                 StudentName = x.StudentName,
+                GroupName = x.GroupName,
                 SaveData = new SaveReviewData
                 {
                     From = new FromToData
@@ -301,9 +307,10 @@ namespace Jaberah.Controllers
                     PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
                 }).Take(take).ToListAsync();
 
-            var result = grouped.Select(x => new GetMonthlyReportForView
+            var result = grouped.Select(x => new GetBestStudentsReportForView
             {
                 StudentName = x.StudentName,
+                GroupName = null,
                 SaveData = new SaveReviewData
                 {
                     From = new FromToData

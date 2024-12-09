@@ -30,6 +30,7 @@ namespace Jaberah.Controllers
                 SchoolClass = x.SchoolClass,
                 SchoolLevel = x.SchoolLevel,
                 MemoRate = x.MemoRate,
+                GroupId = x.GroupId,
                 GroupName = x.Group.GroupName,
                 Notes = x.Notes
             }).AsQueryable();
