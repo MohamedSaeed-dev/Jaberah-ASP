@@ -6,16 +6,18 @@ using Jaberah.Models.ViewModels.Students;
 using Jaberah.Validations.Students;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using static Jaberah.Models.DTOs.Students;
 
 namespace Jaberah.Controllers
 {
     [Route("api/students")]
     [ApiController]
-    public class StudentsController(JaberahDBContext db, IMapper mapper) : ControllerBase
+    public class StudentsController(JaberahDBContext db, IMapper mapper, IMemoryCache cache) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
         private readonly IMapper _mapper = mapper;
+        private readonly IMemoryCache _cache = cache;
 
         [HttpGet]
         public async Task<IActionResult> GetStudents([FromQuery] string searchText = "", [FromQuery] bool withoutGroup = false, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
@@ -52,19 +54,22 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "الطالب موجود مسبقاً" });
             }
 
-            var groupExists = await _db.Groups
-                .FirstOrDefaultAsync(g => g.Id == model.GroupId);
-
-            if (groupExists == null)
+            if (model.GroupId.HasValue)
             {
-                return NotFound(new { message = "لاتوجد حلقة بهذا المعرف" });
+                var groupExists = await _db.Groups
+                    .FirstOrDefaultAsync(g => g.Id == model.GroupId);
+
+                if (groupExists == null)
+                {
+                    return NotFound(new { message = "لاتوجد حلقة بهذا المعرف" });
+                }
             }
 
             var newStudent = _mapper.Map<Student>(model);
 
             await _db.Students.AddAsync(newStudent);
             await _db.SaveChangesAsync();
-
+            InvalidateCache();
             return StatusCode(201, new { message = "تم اضافة الطالب بنجاح" });
         }
         [UpdateStudent]
@@ -97,11 +102,10 @@ namespace Jaberah.Controllers
             student.SchoolLevel = !string.IsNullOrWhiteSpace(model.SchoolLevel) ? model.SchoolLevel : student.SchoolLevel;
             student.MemoRate = !string.IsNullOrWhiteSpace(model.MemoRate) ? model.MemoRate : student.MemoRate;
             student.Notes = model.Notes is not null ? model.Notes : student.Notes;
-            student.GroupId = model.GroupId ?? student.GroupId;
-
+            student.GroupId = model.GroupId;
             _db.Students.Update(student);
             await _db.SaveChangesAsync();
-
+            InvalidateCache();
             return Ok(new { message = "تم تحديث بيانات الطالب بنجاح" });
         }
 
@@ -120,9 +124,16 @@ namespace Jaberah.Controllers
 
             _db.Students.Remove(student);
             await _db.SaveChangesAsync();
-
+            InvalidateCache();
             return Ok(new { message = "تم حذف الطالب بنجاح" });
         }
-
+        [NonAction]
+        private void InvalidateCache()
+        {
+            _cache.Remove("GroupsCache");
+            _cache.Remove("GroupsCache_WithoutTeacher");
+            _cache.Remove("GroupsForGeneralUse");
+            _cache.Remove("GroupsWithNoTeacher");
+        }
     }
 }

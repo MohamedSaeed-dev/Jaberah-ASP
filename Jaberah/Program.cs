@@ -19,7 +19,7 @@ builder.Services.AddDbContext<JaberahDBContext>(x => x.UseSqlServer(builder.Conf
 builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddScoped<VerifyTokenAttribute>();
 
-
+builder.Services.AddMemoryCache();
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -85,7 +85,9 @@ if (app.Environment.IsDevelopment())
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseRouting();
-app.UseCors();
+app.UseCors(
+    x => x.AllowAnyHeader().AllowAnyOrigin().AllowAnyMethod()
+    );
 app.UseHttpsRedirection();
 
 app.UseAuthentication();

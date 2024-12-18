@@ -8,91 +8,147 @@ using Jaberah.Models.ViewModels.Students;
 using Jaberah.Validations.Groups;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Group = Jaberah.Models.JaberahModels.Group;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Jaberah.Controllers
 {
     [Route("api/groups")]
     [ApiController]
-    public class GroupsController(JaberahDBContext db, IMapper mapper) : ControllerBase
+    public class GroupsController : ControllerBase
     {
-        private readonly JaberahDBContext _db = db;
-        private readonly IMapper _mapper = mapper;
+        private readonly JaberahDBContext _db;
+        private readonly IMapper _mapper;
+        private readonly IMemoryCache _cache;
+        private static readonly string CacheKey = "GroupsCache";
 
-        [HttpGet]
-        public async Task<IActionResult> GetGroups([FromQuery] bool withoutTeacher, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public GroupsController(JaberahDBContext db, IMapper mapper, IMemoryCache cache)
         {
-            var query = _db.Groups.AsNoTracking().AsQueryable();
-
-            if (withoutTeacher) query = query.Where(x => x.Teacher == null).AsQueryable();
-            var groups = query.Select(x => new
-            {
-                x.Id,
-                x.GroupName,
-                x.Period,
-                x.Teacher.TeacherName,
-                StudentsCount = x.Students.Count,
-            }).AsQueryable();
-            var pagedGroups = (await groups.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
-                            .Select(x => new GetGroupsForView
-                            {
-                                Id = x.Id,
-                                GroupName = x.GroupName,
-                                Period = GetPeriodName((byte)x.Period),
-                                TeacherName = x.TeacherName,
-                                StudentsNo = x.StudentsCount
-                            })
-                            .ToPagedList(await groups.CountAsync(), pageNumber, pageSize);
-
-            return Ok(pagedGroups);
+            _db = db;
+            _mapper = mapper;
+            _cache = cache;
         }
-        [HttpGet("for-general-use")]
-        public async Task<IActionResult> GetGroupsForGeneralUse()
+
+        // GET: api/groups
+        [HttpGet]
+        public async Task<IActionResult> GetGroups([FromQuery] bool withoutTeacher)
         {
-            var groups = await _db.Groups.AsNoTracking().Select(x => new
+            var cacheKey = withoutTeacher ? $"{CacheKey}_WithoutTeacher" : CacheKey;
+
+            if (!_cache.TryGetValue(cacheKey, out List<GetGroupsForView> groups))
             {
-                x.Id,
-                x.GroupName,
-            }).ToListAsync();
+                var query = _db.Groups.AsNoTracking().AsQueryable();
+
+                if (withoutTeacher) query = query.Where(x => x.Teacher == null);
+
+                groups = (await query.Select(x => new
+                {
+                    x.Id,
+                    x.GroupName,
+                    x.Period,
+                    x.TeacherId,
+                    x.Teacher.TeacherName,
+                    StudentsCount = x.Students.Count,
+                }).ToListAsync())
+                .Select(x => new GetGroupsForView
+                {
+                    Id = x.Id,
+                    GroupName = x.GroupName,
+                    Period = GetPeriodName((byte)x.Period),
+                    TeacherId = x.TeacherId,
+                    TeacherName = x.TeacherName,
+                    StudentsNo = x.StudentsCount
+                }).ToList();
+
+                _cache.Set(cacheKey, groups, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                    SlidingExpiration = TimeSpan.FromMinutes(5)
+                });
+            }
 
             return Ok(groups);
         }
+
+        [HttpGet("for-general-use")]
+        public async Task<IActionResult> GetGroupsForGeneralUse()
+        {
+            const string cacheKey = "GroupsForGeneralUse";
+
+            // Check if the data exists in the cache
+            if (!_cache.TryGetValue(cacheKey, out List<GetGroupsForGeneralUse> groups))
+            {
+                // If not in cache, fetch from database
+                groups = await _db.Groups.AsNoTracking()
+                    .Select(x => new GetGroupsForGeneralUse
+                    {
+                        Id = x.Id,
+                        GroupName = x.GroupName,
+                    }).ToListAsync();
+
+                // Store the data in the cache with appropriate expiration options
+                _cache.Set(cacheKey, groups, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10), // Cache expires after 10 minutes
+                    SlidingExpiration = TimeSpan.FromMinutes(5)               // Reset expiration timer on access
+                });
+            }
+
+            return Ok(groups);
+        }
+
+
+        // GET: api/groups/{groupId}
         [HttpGet("{groupId}")]
         public async Task<IActionResult> GetGroup([FromRoute] int groupId)
         {
-            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
-            if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
-            {
-                return BadRequest(new { message = "لاتوجد حلقة" });
-            }
-            var query = await _db.Groups.AsNoTracking().Where(x => x.Id == groupId)
-                .Select(x => new
-                {
-                    x.GroupName,
-                    x.Period,
-                    x.Teacher.TeacherName,
-                    StudentCount = x.Students.Count
-                })
-                .FirstOrDefaultAsync();
+            var cacheKey = $"{CacheKey}_Group_{groupId}";
 
-            return Ok(new GetGroupForView
+            if (!_cache.TryGetValue(cacheKey, out GetGroupForView group))
             {
-                GroupName = query!.GroupName,
-                Period = GetPeriodName((byte)query.Period),
-                TeacherName = query.TeacherName,
-                StudentsNo = query.StudentCount
-            });
+                if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
+                var query = await _db.Groups.AsNoTracking()
+                    .Where(x => x.Id == groupId)
+                    .Select(x => new
+                    {
+                        x.GroupName,
+                        x.Period,
+                        x.TeacherId,
+                        x.Teacher.TeacherName,
+                        StudentCount = x.Students.Count
+                    }).FirstOrDefaultAsync();
+
+                if (query == null) return NotFound(new { message = "لاتوجد حلقة" });
+
+                group = new GetGroupForView
+                {
+                    Id = groupId,
+                    GroupName = query.GroupName,
+                    Period = GetPeriodName((byte)query.Period),
+                    TeacherId = query.TeacherId,
+                    TeacherName = query.TeacherName,
+                    StudentsNo = query.StudentCount
+                };
+
+                _cache.Set(cacheKey, group, TimeSpan.FromMinutes(10));
+            }
+
+            return Ok(group);
         }
 
+        // GET: api/groups/{groupId}/students
         [HttpGet("{groupId}/students")]
         public async Task<IActionResult> GetStudentsForGroup([FromRoute] int groupId, [FromQuery] string searchText = "", [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
             if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
             {
                 return BadRequest(new { message = "لاتوجد حلقة" });
             }
-            var query = _db.Students.AsNoTracking().Where(x => (x.GroupId.HasValue && x.GroupId.Value == groupId) && x.StudentName.Contains(searchText))
+
+            var query = _db.Students.AsNoTracking()
+                .Where(x => (x.GroupId.HasValue && x.GroupId.Value == groupId) && x.StudentName.Contains(searchText))
                 .Select(x => new GetStudentsForGroupForView
                 {
                     Id = x.Id,
@@ -102,92 +158,138 @@ namespace Jaberah.Controllers
                     SchoolLevel = x.SchoolLevel,
                     MemoRate = x.MemoRate,
                     Notes = x.Notes
-                }).AsQueryable();
+                });
 
             var pagedStudents = (await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
                             .ToPagedList(await query.CountAsync(), pageNumber, pageSize);
 
+
+
             return Ok(pagedStudents);
         }
 
+        // GET: api/groups/has-no-teacher-data
         [HttpGet("has-no-teacher-data")]
         public async Task<IActionResult> GetGroupsWithNoTeacher()
         {
-            var groups = await _db.Groups.AsNoTracking()
-            .Where(g => !g.TeacherId.HasValue)
-            .Select(g => new { g.Id, g.GroupName })
-            .ToListAsync();
+            const string cacheKey = "GroupsWithNoTeacher";
+
+            if (!_cache.TryGetValue(cacheKey, out var groups))
+            {
+                groups = await _db.Groups.AsNoTracking()
+                    .Where(g => !g.TeacherId.HasValue)
+                    .Select(g => new { g.Id, g.GroupName })
+                    .ToListAsync();
+
+                _cache.Set(cacheKey, groups, TimeSpan.FromMinutes(10));
+            }
 
             return Ok(groups);
         }
+
+        // GET: api/groups/teachers/{teacherId}/has-no-teacher-or-has-teacher
         [HttpGet("teachers/{teacherId}/has-no-teacher-or-has-teacher")]
         public async Task<IActionResult> GetGroupsWithNoTeacherAndTeacherGroups([FromRoute] int teacherId)
         {
             if (teacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
             if (!await _db.Teachers.AnyAsync(x => x.Id == teacherId))
             {
                 return BadRequest(new { message = "لايوجد معلم" });
             }
+
             var groups = await _db.Groups.AsNoTracking()
-                    .Where(g => (g.TeacherId.HasValue && g.TeacherId.Value == teacherId) || !g.TeacherId.HasValue)
-                    .Select(g => new { g.Id, g.GroupName })
-                    .ToListAsync();
+                .Where(g => (g.TeacherId.HasValue && g.TeacherId.Value == teacherId) || !g.TeacherId.HasValue)
+                .Select(g => new { g.Id, g.GroupName })
+                .ToListAsync();
 
             return Ok(groups);
         }
-        [AddGroup]
+
+        // POST: api/groups
         [HttpPost]
+        [AddGroup]
         public async Task<IActionResult> AddGroup([FromBody] AddGroupDTO model)
         {
             var existingGroup = await _db.Groups
                 .FirstOrDefaultAsync(g => g.GroupName.Trim() == model.GroupName.Trim());
 
-            if (existingGroup is not null)
+            if (existingGroup != null)
                 return BadRequest(new { message = "الحلقة موجودة مسبقاً" });
+
+            if (model.TeacherId.HasValue && !await _db.Teachers.AnyAsync(x => x.Id == model.TeacherId.Value))
+            {
+                return BadRequest(new { message = "لايوجد معلم" });
+            }
 
             var newGroup = _mapper.Map<Group>(model);
 
             await _db.Groups.AddAsync(newGroup);
             await _db.SaveChangesAsync();
 
+            InvalidateCache();
+
             return StatusCode(201, new { message = "تم اضافة الحلقة بنجاح" });
         }
 
+        // PUT: api/groups/{groupId}
         [HttpPut("{groupId}")]
         public async Task<IActionResult> UpdateGroup([FromRoute] int groupId, [FromBody] UpdateGroupDTO model)
         {
             if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
             var group = await _db.Groups.FindAsync(groupId);
-            if (group is null)
+            if (group == null)
                 return NotFound(new { message = "لاتوجد حلقة" });
 
+            if (model.TeacherId.HasValue && !await _db.Teachers.AnyAsync(x => x.Id == model.TeacherId.Value))
+            {
+                return BadRequest(new { message = "لا يوجد معلم" });
+            }
+
             group.GroupName = !string.IsNullOrWhiteSpace(model.GroupName) ? model.GroupName : group.GroupName;
-            group.Period = model.Period.HasValue ? model.Period.Value : group.Period;
+            group.TeacherId = model.TeacherId;
+            group.Period = model.Period ?? group.Period;
 
             _db.Groups.Update(group);
             await _db.SaveChangesAsync();
 
+            InvalidateCache();
+
             return Ok(new { message = "تم تحديث بيانات الحلقة بنجاح" });
         }
 
+        // DELETE: api/groups/{groupId}
         [HttpDelete("{groupId}")]
         public async Task<IActionResult> DeleteGroup([FromRoute] int groupId)
         {
             if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
             var group = await _db.Groups.FindAsync(groupId);
-            if (group is null)
+            if (group == null)
                 return NotFound(new { message = "لاتوجد حلقة" });
 
             _db.Groups.Remove(group);
             await _db.SaveChangesAsync();
 
+            InvalidateCache();
+
             return Ok(new { message = "تم حذف الحلقة بنجاح" });
         }
+
+        // Helper method to invalidate cache
+        private void InvalidateCache()
+        {
+            _cache.Remove(CacheKey);
+            _cache.Remove($"{CacheKey}_WithoutTeacher");
+            _cache.Remove("GroupsForGeneralUse");
+            _cache.Remove("GroupsWithNoTeacher");
+        }
+
         [NonAction]
         private string GetPeriodName(byte period)
         {
-            return (Enum.GetName(typeof(Period), period) == "MORNING" ? "صباحية" : "مسائية");
+            return Enum.GetName(typeof(Period), period) == "MORNING" ? "صباحية" : "مسائية";
         }
     }
-
 }

@@ -50,15 +50,6 @@ namespace Jaberah.Validations.Students
                     });
                 }
 
-                if (dto.GroupId.Equals(default))
-                {
-                    validationContent.Add(new ValidationModel
-                    {
-                        Key = "الحلقة",
-                        Message = "الحلقة اجبارية"
-                    });
-                }
-
             }
             else
                 validationContent.AddRange
@@ -74,11 +65,6 @@ namespace Jaberah.Validations.Students
                         {
                             Key = "رقم ولي الامر",
                             Message = "رقم ولي الامر اجباري"
-                        },
-                        new ()
-                        {
-                            Key = "الحلقة",
-                            Message = "الحلقة اجبارية"
                         }
                     }
                 );

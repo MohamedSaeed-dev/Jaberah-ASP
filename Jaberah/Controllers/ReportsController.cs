@@ -64,6 +64,7 @@ namespace Jaberah.Controllers
                     MidFinalGrade = x.MidFinalGrade,
                     Total = (x.AttendanceSum + x.BehaviorSum + x.OralGradeSum + x.PaperGradeSum + Math.Min(x.FollowRowCount * 0.5, 10.0)) * 100 / 400
                 })
+                .OrderByDescending(x => x.Total)
                 .ToListAsync();
 
             return Ok(report);
@@ -161,6 +162,7 @@ namespace Jaberah.Controllers
                     Total = ((x.Attendance + x.Behavior + x.OralExam + x.PaperExam) * 100) / 100
 
                 })
+                .OrderByDescending(x => x.Total)
                 .ToListAsync();
 
             return Ok(report);
@@ -218,36 +220,6 @@ namespace Jaberah.Controllers
             {
                 StudentName = x.StudentName,
                 GroupName = x.GroupName,
-                SaveData = new SaveReviewData
-                {
-                    From = new FromToData
-                    {
-                        SurahName = x.Save.FirstOrDefault()!.FromSurah,
-                        Verse = x.Save.FirstOrDefault()!.FromVerse,
-                    },
-                    To = new FromToData
-                    {
-                        SurahName = x.Save.LastOrDefault()!.ToSurah,
-                        Verse = x.Save.LastOrDefault()!.ToVerse,
-                    },
-                    Pages = x.Save.Sum(y => y.Pages),
-                    Rate = ""
-                },
-                ReviewData = new SaveReviewData
-                {
-                    From = new FromToData
-                    {
-                        SurahName = x.Review.FirstOrDefault()!.FromSurah,
-                        Verse = x.Review.FirstOrDefault()!.FromVerse,
-                    },
-                    To = new FromToData
-                    {
-                        SurahName = x.Review.LastOrDefault()!.ToSurah,
-                        Verse = x.Review.LastOrDefault()!.ToVerse,
-                    },
-                    Pages = x.Review.Sum(y => y.Pages),
-                    Rate = ""
-                },
                 AttendanceGrade = x.Attendance,
                 BehaviorGrade = x.Behavior,
                 OralGrade = x.OralExam,
@@ -311,36 +283,6 @@ namespace Jaberah.Controllers
             {
                 StudentName = x.StudentName,
                 GroupName = null,
-                SaveData = new SaveReviewData
-                {
-                    From = new FromToData
-                    {
-                        SurahName = x.Save.FirstOrDefault()!.FromSurah,
-                        Verse = x.Save.FirstOrDefault()!.FromVerse,
-                    },
-                    To = new FromToData
-                    {
-                        SurahName = x.Save.LastOrDefault()!.ToSurah,
-                        Verse = x.Save.LastOrDefault()!.ToVerse,
-                    },
-                    Pages = x.Save.Sum(y => y.Pages),
-                    Rate = ""
-                },
-                ReviewData = new SaveReviewData
-                {
-                    From = new FromToData
-                    {
-                        SurahName = x.Review.FirstOrDefault()!.FromSurah,
-                        Verse = x.Review.FirstOrDefault()!.FromVerse,
-                    },
-                    To = new FromToData
-                    {
-                        SurahName = x.Review.LastOrDefault()!.ToSurah,
-                        Verse = x.Review.LastOrDefault()!.ToVerse,
-                    },
-                    Pages = x.Review.Sum(y => y.Pages),
-                    Rate = ""
-                },
                 AttendanceGrade = x.Attendance,
                 BehaviorGrade = x.Behavior,
                 OralGrade = x.OralExam,

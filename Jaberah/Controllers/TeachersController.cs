@@ -7,16 +7,18 @@ using Jaberah.Models.ViewModels.Teachers;
 using Jaberah.Validations.Teachers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using static Jaberah.Models.DTOs.Teachers;
 
 namespace Jaberah.Controllers
 {
     [Route("api/teachers")]
     [ApiController]
-    public class TeachersController(JaberahDBContext db, IMapper mapper) : ControllerBase
+    public class TeachersController(JaberahDBContext db, IMapper mapper, IMemoryCache cache) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
         private readonly IMapper _mapper = mapper;
+        private readonly IMemoryCache _cache = cache;
 
         [HttpGet]
         public async Task<IActionResult> GetTeachers([FromQuery] string searchText = "", [FromQuery] bool withoutGroups = false, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
@@ -41,6 +43,34 @@ namespace Jaberah.Controllers
 
             return Ok(pagedTeachers);
         }
+
+        [HttpGet("for-general-use")]
+        public async Task<IActionResult> GetTeachersForGeneralUse()
+        {
+            const string cacheKey = "TeachersForGeneralUse";
+
+            // Check if the data exists in the cache
+            if (!_cache.TryGetValue(cacheKey, out List<GetTeachersForGeneralUse> teachers))
+            {
+                // If not in cache, fetch from database
+                teachers = await _db.Teachers.AsNoTracking()
+                    .Select(x => new GetTeachersForGeneralUse
+                    {
+                        Id = x.Id,
+                        TeacherName = x.TeacherName,
+                    }).ToListAsync();
+
+                // Store the data in the cache with appropriate expiration options
+                _cache.Set(cacheKey, teachers, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10), // Cache expires after 10 minutes
+                    SlidingExpiration = TimeSpan.FromMinutes(5)               // Reset expiration timer on access
+                });
+            }
+
+            return Ok(teachers);
+        }
+
         [HttpGet("{teacherId}/groups")]
         public async Task<IActionResult> GetGroupsOfTeacher([FromRoute] int teacherId)
         {
@@ -68,6 +98,8 @@ namespace Jaberah.Controllers
                 StudentsNo = x.StudentCount
             }));
         }
+
+
         [AddTeacher]
         [HttpPost]
         public async Task<IActionResult> AddTeacher([FromBody] AddTeacherDTO model)
@@ -107,7 +139,7 @@ namespace Jaberah.Controllers
 
             await _db.Teachers.AddAsync(newTeacher);
             await _db.SaveChangesAsync();
-
+            InvalidateCache();
             return StatusCode(201, new { message = "تم اضافة المعلم بنجاح" });
         }
         [UpdateTeacher]
@@ -157,19 +189,19 @@ namespace Jaberah.Controllers
 
             teacher.TeacherName = string.IsNullOrEmpty(model.TeacherName) ? teacher.TeacherName.Trim() : model.TeacherName.Trim();
             teacher.PhoneNumber = string.IsNullOrEmpty(model.PhoneNumber) ? teacher.PhoneNumber : model.PhoneNumber;
-
+            List<Group>? newGroups = [];
             if (model.GroupsId != null && model.GroupsId.Count > 0)
             {
-                var newGroups = await _db.Groups
+                newGroups = await _db.Groups
                     .Where(g => model.GroupsId.Contains(g.Id))
                     .ToListAsync();
 
-                teacher.Groups = newGroups;
             }
 
+                teacher.Groups = newGroups;
             _db.Teachers.Update(teacher);
             await _db.SaveChangesAsync();
-
+            InvalidateCache();
             return Ok(new { message = "تم تحديث بيانات المعلم بنجاح" });
 
         }
@@ -187,7 +219,7 @@ namespace Jaberah.Controllers
 
             _db.Teachers.Remove(teacher);
             await _db.SaveChangesAsync();
-
+            InvalidateCache();
             return Ok(new { message = "تم حذف المعلم بنجاح" });
         }
 
@@ -195,6 +227,14 @@ namespace Jaberah.Controllers
         private string GetPeriodName(byte period)
         {
             return (Enum.GetName(typeof(Period), period) == "MORNING" ? "صباحية" : "مسائية");
+        }
+        [NonAction]
+        private void InvalidateCache()
+        {
+            _cache.Remove("GroupsCache");
+            _cache.Remove("GroupsCache_WithoutTeacher");
+            _cache.Remove("GroupsForGeneralUse");
+            _cache.Remove("GroupsWithNoTeacher");
         }
     }
 

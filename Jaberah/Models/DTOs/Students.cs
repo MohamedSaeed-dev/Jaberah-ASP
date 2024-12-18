@@ -10,7 +10,7 @@
             public string? SchoolLevel { get; set; }
             public string? MemoRate { get; set; }
             public string? Notes { get; set; }
-            public int GroupId { get; set; }
+            public int? GroupId { get; set; }
         }
         public record UpdateStudentDTO
         {
