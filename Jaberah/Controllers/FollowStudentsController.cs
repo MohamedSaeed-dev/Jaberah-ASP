@@ -147,7 +147,7 @@ namespace Jaberah.Controllers
         }
 
         [HttpGet("groups/{groupId}/for-day")]
-        public async Task<IActionResult> GetFollowStudentsForGroupForDay([FromRoute] int groupId, [FromQuery] DateTime date)
+        public async Task<IActionResult> GetFollowStudentsForGroupForDay([FromRoute] int groupId, [FromQuery] DateTime date, [FromQuery] string searchText = "")
         {
             if (date == default)
             {
@@ -160,7 +160,7 @@ namespace Jaberah.Controllers
             }
 
             var followStudents = await _db.Students.AsNoTracking()
-                .Where(student => student.GroupId == groupId)
+                .Where(student => student.GroupId == groupId && student.StudentName.Contains(searchText))
                 .Select(student => new
                 {
                     student.Id,

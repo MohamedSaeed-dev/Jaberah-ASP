@@ -69,7 +69,9 @@ namespace Jaberah.Controllers
 
             await _db.Students.AddAsync(newStudent);
             await _db.SaveChangesAsync();
-            InvalidateCache();
+
+            _cache.Remove("GroupsCache");
+            _cache.Remove("GroupsCache_WithoutTeacher");
             return StatusCode(201, new { message = "تم اضافة الطالب بنجاح" });
         }
         [UpdateStudent]
@@ -105,7 +107,8 @@ namespace Jaberah.Controllers
             student.GroupId = model.GroupId;
             _db.Students.Update(student);
             await _db.SaveChangesAsync();
-            InvalidateCache();
+            _cache.Remove("GroupsCache");
+            _cache.Remove("GroupsCache_WithoutTeacher");
             return Ok(new { message = "تم تحديث بيانات الطالب بنجاح" });
         }
 
@@ -124,16 +127,9 @@ namespace Jaberah.Controllers
 
             _db.Students.Remove(student);
             await _db.SaveChangesAsync();
-            InvalidateCache();
-            return Ok(new { message = "تم حذف الطالب بنجاح" });
-        }
-        [NonAction]
-        private void InvalidateCache()
-        {
             _cache.Remove("GroupsCache");
             _cache.Remove("GroupsCache_WithoutTeacher");
-            _cache.Remove("GroupsForGeneralUse");
-            _cache.Remove("GroupsWithNoTeacher");
+            return Ok(new { message = "تم حذف الطالب بنجاح" });
         }
     }
 }

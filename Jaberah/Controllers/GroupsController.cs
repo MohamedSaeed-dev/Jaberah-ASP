@@ -61,8 +61,8 @@ namespace Jaberah.Controllers
 
                 _cache.Set(cacheKey, groups, new MemoryCacheEntryOptions
                 {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-                    SlidingExpiration = TimeSpan.FromMinutes(5)
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(7),
+                    SlidingExpiration = TimeSpan.FromHours(12)
                 });
             }
 
@@ -74,10 +74,8 @@ namespace Jaberah.Controllers
         {
             const string cacheKey = "GroupsForGeneralUse";
 
-            // Check if the data exists in the cache
             if (!_cache.TryGetValue(cacheKey, out List<GetGroupsForGeneralUse> groups))
             {
-                // If not in cache, fetch from database
                 groups = await _db.Groups.AsNoTracking()
                     .Select(x => new GetGroupsForGeneralUse
                     {
@@ -85,55 +83,14 @@ namespace Jaberah.Controllers
                         GroupName = x.GroupName,
                     }).ToListAsync();
 
-                // Store the data in the cache with appropriate expiration options
                 _cache.Set(cacheKey, groups, new MemoryCacheEntryOptions
                 {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10), // Cache expires after 10 minutes
-                    SlidingExpiration = TimeSpan.FromMinutes(5)               // Reset expiration timer on access
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(7),
+                    SlidingExpiration = TimeSpan.FromHours(12)
                 });
             }
 
             return Ok(groups);
-        }
-
-
-        // GET: api/groups/{groupId}
-        [HttpGet("{groupId}")]
-        public async Task<IActionResult> GetGroup([FromRoute] int groupId)
-        {
-            var cacheKey = $"{CacheKey}_Group_{groupId}";
-
-            if (!_cache.TryGetValue(cacheKey, out GetGroupForView group))
-            {
-                if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
-
-                var query = await _db.Groups.AsNoTracking()
-                    .Where(x => x.Id == groupId)
-                    .Select(x => new
-                    {
-                        x.GroupName,
-                        x.Period,
-                        x.TeacherId,
-                        x.Teacher.TeacherName,
-                        StudentCount = x.Students.Count
-                    }).FirstOrDefaultAsync();
-
-                if (query == null) return NotFound(new { message = "لاتوجد حلقة" });
-
-                group = new GetGroupForView
-                {
-                    Id = groupId,
-                    GroupName = query.GroupName,
-                    Period = GetPeriodName((byte)query.Period),
-                    TeacherId = query.TeacherId,
-                    TeacherName = query.TeacherName,
-                    StudentsNo = query.StudentCount
-                };
-
-                _cache.Set(cacheKey, group, TimeSpan.FromMinutes(10));
-            }
-
-            return Ok(group);
         }
 
         // GET: api/groups/{groupId}/students
@@ -181,7 +138,7 @@ namespace Jaberah.Controllers
                     .Select(g => new { g.Id, g.GroupName })
                     .ToListAsync();
 
-                _cache.Set(cacheKey, groups, TimeSpan.FromMinutes(10));
+                _cache.Set(cacheKey, groups, TimeSpan.FromDays(7));
             }
 
             return Ok(groups);

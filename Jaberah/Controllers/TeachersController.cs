@@ -49,10 +49,8 @@ namespace Jaberah.Controllers
         {
             const string cacheKey = "TeachersForGeneralUse";
 
-            // Check if the data exists in the cache
             if (!_cache.TryGetValue(cacheKey, out List<GetTeachersForGeneralUse> teachers))
             {
-                // If not in cache, fetch from database
                 teachers = await _db.Teachers.AsNoTracking()
                     .Select(x => new GetTeachersForGeneralUse
                     {
@@ -60,11 +58,10 @@ namespace Jaberah.Controllers
                         TeacherName = x.TeacherName,
                     }).ToListAsync();
 
-                // Store the data in the cache with appropriate expiration options
                 _cache.Set(cacheKey, teachers, new MemoryCacheEntryOptions
                 {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10), // Cache expires after 10 minutes
-                    SlidingExpiration = TimeSpan.FromMinutes(5)               // Reset expiration timer on access
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(7),
+                    SlidingExpiration = TimeSpan.FromHours(12)
                 });
             }
 
@@ -82,20 +79,22 @@ namespace Jaberah.Controllers
             var query = await _db.Groups.AsNoTracking().Where(x => x.TeacherId.HasValue && x.TeacherId.Value == teacherId)
                 .Select(x => new
                 {
+                    x.Id,
                     x.GroupName,
+                    x.TeacherId,
                     x.Teacher.TeacherName,
                     x.Period,
-                    StudentCount = x.Students.Count
                 }).ToListAsync();
 
             if (query is null) return BadRequest(new { message = "لاتوجد حلقات لهذا المعلم" });
 
             return Ok(query.Select(x => new GetGroupForView
             {
+                Id = x.Id,
                 GroupName = x.GroupName,
+                TeacherId = x.TeacherId,
                 TeacherName = x.TeacherName,
                 Period = GetPeriodName((byte)x.Period),
-                StudentsNo = x.StudentCount
             }));
         }
 
@@ -139,7 +138,9 @@ namespace Jaberah.Controllers
 
             await _db.Teachers.AddAsync(newTeacher);
             await _db.SaveChangesAsync();
-            InvalidateCache();
+            _cache.Remove("GroupsCache");
+            _cache.Remove("GroupsCache_WithoutTeacher");
+            _cache.Remove("TeachersForGeneralUse");
             return StatusCode(201, new { message = "تم اضافة المعلم بنجاح" });
         }
         [UpdateTeacher]
@@ -201,7 +202,9 @@ namespace Jaberah.Controllers
                 teacher.Groups = newGroups;
             _db.Teachers.Update(teacher);
             await _db.SaveChangesAsync();
-            InvalidateCache();
+            _cache.Remove("GroupsCache");
+            _cache.Remove("GroupsCache_WithoutTeacher");
+            _cache.Remove("TeachersForGeneralUse");
             return Ok(new { message = "تم تحديث بيانات المعلم بنجاح" });
 
         }
@@ -219,7 +222,9 @@ namespace Jaberah.Controllers
 
             _db.Teachers.Remove(teacher);
             await _db.SaveChangesAsync();
-            InvalidateCache();
+            _cache.Remove("GroupsCache");
+            _cache.Remove("GroupsCache_WithoutTeacher");
+            _cache.Remove("TeachersForGeneralUse");
             return Ok(new { message = "تم حذف المعلم بنجاح" });
         }
 
@@ -227,14 +232,6 @@ namespace Jaberah.Controllers
         private string GetPeriodName(byte period)
         {
             return (Enum.GetName(typeof(Period), period) == "MORNING" ? "صباحية" : "مسائية");
-        }
-        [NonAction]
-        private void InvalidateCache()
-        {
-            _cache.Remove("GroupsCache");
-            _cache.Remove("GroupsCache_WithoutTeacher");
-            _cache.Remove("GroupsForGeneralUse");
-            _cache.Remove("GroupsWithNoTeacher");
         }
     }
 
