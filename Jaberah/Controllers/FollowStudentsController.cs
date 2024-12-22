@@ -169,6 +169,7 @@ namespace Jaberah.Controllers
                         .Where(f => f.StudentId == student.Id && date.Year == f.Date.Year && date.Month == f.Date.Month)
                         .SelectMany(f => f.FollowStudentsRows.Where(x => x.Day == date.Day).Select(row => new GetFollowStudentForDay
                         {
+                            StudentId = student.Id,
                             StudentName = student.StudentName,
                             Attendance = row.Attendance,
                             Behavior = row.Behavior,
@@ -200,6 +201,7 @@ namespace Jaberah.Controllers
                 {
                     new GetFollowStudentForDay
                     {
+                        StudentId = student.Id,
                         StudentName = student.StudentName,
                         Attendance = 0,
                         Behavior = 0,
@@ -382,10 +384,10 @@ namespace Jaberah.Controllers
             row.WithTeacher.Rate = model.RateTeacher ?? row.WithTeacher.Rate;
             row.WithTeacher.Pages = model.PagesTeacher ?? row.WithTeacher.Pages;
 
-            row.WithFriend.From.SurahName = model.SurahFromTeacher ?? row.WithFriend.From.SurahName;
-            row.WithFriend.To.SurahName = model.SurahToTeacher ?? row.WithFriend.To.SurahName;
-            row.WithFriend.From.Verse = model.VerseFromTeacher ?? row.WithFriend.From.Verse;
-            row.WithFriend.To.Verse = model.VerseToTeacher ?? row.WithFriend.To.Verse;
+            row.WithFriend.From.SurahName = model.SurahFromFriend ?? row.WithFriend.From.SurahName;
+            row.WithFriend.To.SurahName = model.SurahToFriend ?? row.WithFriend.To.SurahName;
+            row.WithFriend.From.Verse = model.VerseFromFriend ?? row.WithFriend.From.Verse;
+            row.WithFriend.To.Verse = model.VerseToFriend ?? row.WithFriend.To.Verse;
 
             row.WithFriend.Rate = model.RateFriend ?? row.WithFriend.Rate;
             row.WithFriend.Pages = model.PagesFriend ?? row.WithFriend.Pages;

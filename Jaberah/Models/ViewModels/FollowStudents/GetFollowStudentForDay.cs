@@ -2,6 +2,7 @@
 {
     public class GetFollowStudentForDay
     {
+        public int StudentId { get; set; }
         public string StudentName { get; set; }
         public string SurahFromTeacher { get; set; }
         public string SurahToTeacher { get; set; }

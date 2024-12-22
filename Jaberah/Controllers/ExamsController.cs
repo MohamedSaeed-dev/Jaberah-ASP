@@ -42,7 +42,7 @@ namespace Jaberah.Controllers
             return Ok(new { message = "تم تحديث الاختبار الشهري بنجاح" });
         }
         [HttpPost("mid-final-exam")]
-        public async Task<IActionResult> UpsertMidFinalExam([FromQuery] int studentId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate, [FromBody] float grade)
+        public async Task<IActionResult> UpsertMidFinalExam([FromQuery] int studentId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate, [FromBody] MidFinalGrade grade)
         {
             if (studentId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
             if (!await _db.Students.AnyAsync(x => x.Id == studentId))
@@ -68,15 +68,19 @@ namespace Jaberah.Controllers
                     StudentId = studentId,
                     FromDate = fromDate,
                     ToDate = toDate,
-                    Grade = grade
+                    Grade = grade.Grade ?? 0
                 });
             }
             else
             {
-                final.Grade = grade;
+                final.Grade = grade.Grade ?? final.Grade;
             }
             await _db.SaveChangesAsync();
             return Ok(new { message = "تم الحفظ بنجاح" });
         }
+    }
+    public record MidFinalGrade
+    {
+        public float? Grade { get; set; }
     }
 }

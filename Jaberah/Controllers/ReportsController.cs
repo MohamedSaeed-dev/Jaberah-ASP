@@ -32,41 +32,51 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "الفارق يجب ان يكون 4 اشهر" });
             }
 
-            var report = (await _db.FollowStudents.AsNoTracking()
-                .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
-                .Join(_db.MidFinals.Where(a => a.FromDate == fromDate && a.ToDate == toDate),
-                      a => a.StudentId, b => b.StudentId, (a, b) => new
-                      {
-                          a.Student,
-                          a.FollowStudentsRows,
-                          a.Exams,
-                          b.Grade
-                      })
-                .GroupBy(x => x.Student.StudentName)
-                .Select(g => new
-                {
-                    StudentName = g.Key,
-                    AttendanceSum = Math.Min( g.SelectMany(x => x.FollowStudentsRows).Sum(r => r.Attendance), 25),
-                    BehaviorSum = Math.Min( g.SelectMany(x => x.FollowStudentsRows).Sum(r => r.Behavior),25),
-                    GradeSum = Math.Min( g.SelectMany(x => x.FollowStudentsRows).Count() * 0.5, 10),
-                    OralGradeSum = g.Sum(x => x.Exams.OralExam),
-                    PaperGradeSum = g.Sum(x => x.Exams.PaperExam),
-                    MidFinalGrade = g.Sum(x => x.Grade)
-                }).ToListAsync())
-                .Select(x => new SemesterReportForView
-                {
-                    StudentName = x.StudentName,
-                    AttendanceSum = x.AttendanceSum,
-                    BehaviorSum = x.BehaviorSum,
-                    GradeSum = x.GradeSum,
-                    OralGradeSum = x.OralGradeSum,
-                    PaperGradeSum = x.PaperGradeSum,
-                    MidFinalGrade = x.MidFinalGrade,
-                    Total = (x.MidFinalGrade + x.AttendanceSum + x.BehaviorSum + x.OralGradeSum + x.PaperGradeSum + x.GradeSum) * 100 / 400
-                })
-                .OrderByDescending(x => x.Total)
-                .ToList();
-
+            var report =(await _db.FollowStudents
+                        .AsNoTracking()
+                        .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
+                        .GroupJoin(
+                            _db.MidFinals
+                                .AsNoTracking()
+                                .Where(a => a.FromDate == fromDate && a.ToDate == toDate),
+                            a => a.StudentId,
+                            b => b.StudentId,
+                            (a, b) => new { FollowStudent = a, MidFinal = b.DefaultIfEmpty() }
+                        )
+                        .SelectMany(
+                            x => x.MidFinal,
+                            (x, b) => new
+                            {
+                                x.FollowStudent,
+                                Grade = b != null ? b.Grade : 0
+                            }
+                        )
+                        .GroupBy(x => x.FollowStudent.Student)
+                        .Select(g => new
+                        {
+                            StudentId = g.Key.Id,
+                            g.Key.StudentName,
+                            AttendanceSum = Math.Min(g.Sum(x => x.FollowStudent.FollowStudentsRows.Sum(r => r.Attendance)), 25),
+                            BehaviorSum = Math.Min(g.Sum(x => x.FollowStudent.FollowStudentsRows.Sum(r => r.Behavior)), 25),
+                            GradeSum = Math.Min(g.Sum(x => x.FollowStudent.FollowStudentsRows.Count()) * 0.5, 10),
+                            OralGradeSum = g.Sum(x => x.FollowStudent.Exams.OralExam),
+                            PaperGradeSum = g.Sum(x => x.FollowStudent.Exams.PaperExam),
+                            MidFinalGrade = g.Sum(x => x.Grade)
+                        })
+                        .ToListAsync()).Select(x => new SemesterReportForView
+                        {
+                            StudentId = x.StudentId,
+                            StudentName = x.StudentName,
+                            AttendanceSum = x.AttendanceSum,
+                            BehaviorSum = x.BehaviorSum,
+                            GradeSum = x.GradeSum,
+                            OralGradeSum = x.OralGradeSum,
+                            PaperGradeSum = x.PaperGradeSum,
+                            MidFinalGrade = x.MidFinalGrade,
+                            Total = (x.MidFinalGrade + x.AttendanceSum + x.BehaviorSum + x.OralGradeSum + x.PaperGradeSum + x.GradeSum) * 100 / 400
+                        })
+                        .OrderByDescending(x => x.Total)
+                        .ToList();
             return Ok(report);
         }
 
@@ -92,6 +102,7 @@ namespace Jaberah.Controllers
                 .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
                 .Select(x => new
                 {
+                    x.Id,
                     x.Student.StudentName,
                     Save = x.FollowStudentsRows
                         .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
@@ -127,6 +138,7 @@ namespace Jaberah.Controllers
                 .ToListAsync())
                 .Select(x => new GetMonthlyReportForView
                 {
+                    FollowStudentId = x.Id,
                     StudentName = x.StudentName,
                     SaveData = new SaveReviewData
                     {

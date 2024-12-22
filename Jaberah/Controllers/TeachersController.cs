@@ -98,6 +98,30 @@ namespace Jaberah.Controllers
             }));
         }
 
+        [HttpGet("{teacherId}/groups/for-general-use")]
+        public async Task<IActionResult> GetGroupsOfTeacherForGeneralUse([FromRoute] int teacherId)
+        {
+            if (teacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+            if (!await _db.Teachers.AnyAsync(x => x.Id == teacherId))
+            {
+                return BadRequest(new { message = "لايوجد معلم" });
+            }
+            var query = await _db.Groups.AsNoTracking().Where(x => x.TeacherId.HasValue && x.TeacherId.Value == teacherId)
+                .Select(x => new
+                {
+                    x.Id,
+                    x.GroupName,
+                }).ToListAsync();
+
+            if (query is null) return BadRequest(new { message = "لاتوجد حلقات لهذا المعلم" });
+
+            return Ok(query.Select(x => new GetGroupsOfTeacherForGeneralUse
+            {
+                Id = x.Id,
+                GroupName = x.GroupName
+            }));
+        }
+
 
         [AddTeacher]
         [HttpPost]
