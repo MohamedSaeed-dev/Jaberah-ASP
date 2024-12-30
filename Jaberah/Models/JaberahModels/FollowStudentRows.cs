@@ -10,6 +10,7 @@
         public WithTeacherFriend WithFriend { get; set; }
         public byte Attendance { get; set; }
         public byte Behavior { get; set; }
+        public string? Notes { get; set; }
         public int FollowStudentsId { get; set; }
         public FollowStudent FollowStudents { get; set; }
     }

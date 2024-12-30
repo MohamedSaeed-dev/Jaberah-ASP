@@ -16,7 +16,7 @@ namespace Jaberah.Controllers
         private readonly JaberahDBContext _db = db;
 
         [HttpGet("for-month")]
-        public async Task<IActionResult> GetTeachersSalariesForMonth([FromQuery] int year, [FromQuery] int month, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetTeachersSalariesForMonth([FromQuery] int year, [FromQuery] int month)
         {
             if (year <= 0 || month <= 0)
             {
@@ -61,11 +61,11 @@ namespace Jaberah.Controllers
                     DaysAbsence = 0
                 });
 
-            var combinedQuery = salariesQuery
+            var combinedQuery = await salariesQuery
                 .Union(missingSalariesQuery)
                 .OrderBy(x => x.TeacherId)
-                .AsQueryable();
-            return Ok(await combinedQuery.ToPagedListAsync(pageNumber, pageSize));
+                .ToListAsync();
+            return Ok(combinedQuery);
         }
         [UpsertTeachersSalaries]
         [HttpPost]

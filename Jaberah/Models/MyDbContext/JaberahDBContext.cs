@@ -26,6 +26,7 @@ namespace Jaberah.Models.MyDbContext
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+
             // Exam
             modelBuilder.Entity<Exam>(entity =>
             {

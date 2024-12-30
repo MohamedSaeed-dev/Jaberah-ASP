@@ -21,5 +21,6 @@
 
         public byte Attendance { get; set; }
         public byte Behavior { get; set; }
+        public string Notes { get; set; }
     }
 }

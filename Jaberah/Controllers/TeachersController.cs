@@ -23,7 +23,7 @@ namespace Jaberah.Controllers
         [HttpGet]
         public async Task<IActionResult> GetTeachers([FromQuery] string searchText = "", [FromQuery] bool withoutGroups = false, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var query = _db.Teachers.AsNoTracking().Where(x => x.Role == Role.TEACHER && x.TeacherName.Contains(searchText)).AsQueryable();
+            var query = _db.Teachers.AsNoTracking().Where(x => x.TeacherName.Contains(searchText)).AsQueryable();
             if (withoutGroups) query = query.Where(x => x.Groups == null || x.Groups.Count < 1).AsQueryable();
 
             var selectedQuery = query.Select(x => new GetTeachersForView
@@ -82,6 +82,7 @@ namespace Jaberah.Controllers
                     x.Id,
                     x.GroupName,
                     x.TeacherId,
+                    x.Students.Count,
                     x.Teacher.TeacherName,
                     x.Period,
                 }).ToListAsync();
@@ -93,6 +94,7 @@ namespace Jaberah.Controllers
                 Id = x.Id,
                 GroupName = x.GroupName,
                 TeacherId = x.TeacherId,
+                StudentsNo = x.Count,
                 TeacherName = x.TeacherName,
                 Period = GetPeriodName((byte)x.Period),
             }));

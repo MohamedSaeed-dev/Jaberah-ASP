@@ -47,6 +47,7 @@ namespace Jaberah.Controllers
                     VerseToFriend = x.WithFriend.To.Verse,
                     PagesFriend = x.WithFriend.Pages,
                     RateFriend = x.WithFriend.Rate,
+                    Notes = x.Notes
                 })).FirstOrDefaultAsync();
 
             if (followStudentQuery is null)
@@ -70,6 +71,7 @@ namespace Jaberah.Controllers
                     VerseToFriend = 1,
                     PagesFriend = 0,
                     RateFriend = "",
+                    Notes = ""
                 });
             }
 
@@ -114,7 +116,9 @@ namespace Jaberah.Controllers
                     VerseFromFriend = row.WithFriend.From.Verse,
                     VerseToFriend = row.WithFriend.To.Verse,
                     PagesFriend = row.WithFriend.Pages,
-                    RateFriend = row.WithFriend.Rate ?? ""
+                    RateFriend = row.WithFriend.Rate ?? "",
+                    Notes = row.Notes
+
                 }))
                 .ToListAsync();
 
@@ -139,7 +143,8 @@ namespace Jaberah.Controllers
                     VerseFromFriend = 1,
                     VerseToFriend = 1,
                     PagesFriend = 0,
-                    RateFriend = ""
+                    RateFriend = "",
+                    Notes = ""
                 };
             }).ToList();
 
@@ -186,7 +191,8 @@ namespace Jaberah.Controllers
                             VerseFromFriend = row.WithFriend.From.Verse,
                             VerseToFriend = row.WithFriend.To.Verse,
                             PagesFriend = row.WithFriend.Pages,
-                            RateFriend = row.WithFriend.Rate ?? ""
+                            RateFriend = row.WithFriend.Rate ?? "",
+                            Notes = row.Notes
                         })).ToList()
                 }).ToListAsync();
 
@@ -218,7 +224,8 @@ namespace Jaberah.Controllers
                         VerseFromFriend = 1,
                         VerseToFriend = 1,
                         PagesFriend = 0,
-                        RateFriend = ""
+                        RateFriend = "",
+                        Notes = ""
                     }
                 };
             }).ToList();
@@ -284,6 +291,7 @@ namespace Jaberah.Controllers
                         Day = date.Day,
                         Attendance = Math.Max(Math.Min(model.Attendance ?? 0, (byte)1), (byte)0),
                         Behavior = Math.Max(Math.Min(model.Behavior ?? 0, (byte)1), (byte)0),
+                        Notes = model.Notes,
                         WithTeacher = new WithTeacherFriend
                         {
                             From = new Surah
@@ -339,6 +347,7 @@ namespace Jaberah.Controllers
                 FollowStudentsId = followId,
                 Attendance = Math.Max(Math.Min(model.Attendance ?? 0, (byte)1), (byte)0),
                 Behavior = Math.Max(Math.Min(model.Behavior ?? 0, (byte)1), (byte)0),
+                Notes = model.Notes,
                 WithTeacher = new WithTeacherFriend
                 {
                     From = new Surah
@@ -391,6 +400,8 @@ namespace Jaberah.Controllers
 
             row.WithFriend.Rate = model.RateFriend ?? row.WithFriend.Rate;
             row.WithFriend.Pages = model.PagesFriend ?? row.WithFriend.Pages;
+
+            row.Notes = model.Notes;
         }
     }
 }

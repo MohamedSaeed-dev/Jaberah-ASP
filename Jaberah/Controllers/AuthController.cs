@@ -1,4 +1,6 @@
-﻿using Jaberah.Models.MyDbContext;
+﻿using Jaberah.Models.JaberahModels;
+using Jaberah.Models.MyDbContext;
+using Jaberah.Models.ViewModels.Teachers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -19,7 +21,7 @@ namespace Jaberah.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDTO model)
         {
-            var teacher = await _db.Teachers.AsNoTracking()
+            var teacher = await _db.Teachers.Include(x => x.Groups).AsNoTracking()
                 .FirstOrDefaultAsync(t => t.TeacherName == model.Username.Trim());
 
             if (teacher == null)
@@ -51,12 +53,12 @@ namespace Jaberah.Controllers
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
 
-            var userData = new
+            var userData = new AuthTeacher
             {
-                teacher.Id,
-                teacher.TeacherName,
-                teacher.PhoneNumber,
-                teacher.Role
+                Id = teacher.Id,
+                TeacherName = teacher.TeacherName,
+                PhoneNumber = teacher.PhoneNumber,
+                Role = teacher.Role,
             };
 
             return Ok(new { user = userData, token = tokenHandler.WriteToken(token) });
