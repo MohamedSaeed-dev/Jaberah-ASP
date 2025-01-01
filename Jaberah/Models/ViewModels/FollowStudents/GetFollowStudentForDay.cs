@@ -18,9 +18,8 @@
         public string RateFriend { get; set; }
         public float PagesFriend { get; set; }
 
-
-        public byte Attendance { get; set; }
-        public byte Behavior { get; set; }
+        public float Attendance { get; set; }
+        public float Behavior { get; set; }
         public string Notes { get; set; }
     }
 }

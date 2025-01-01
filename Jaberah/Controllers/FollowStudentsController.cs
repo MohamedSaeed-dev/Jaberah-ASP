@@ -289,8 +289,8 @@ namespace Jaberah.Controllers
                     new()
                     {
                         Day = date.Day,
-                        Attendance = Math.Max(Math.Min(model.Attendance ?? 0, (byte)1), (byte)0),
-                        Behavior = Math.Max(Math.Min(model.Behavior ?? 0, (byte)1), (byte)0),
+                        Attendance = Math.Max(Math.Min(model.Attendance ?? 0, 1), 0),
+                        Behavior = Math.Max(Math.Min(model.Behavior ?? 0, 1), 0),
                         Notes = model.Notes,
                         WithTeacher = new WithTeacherFriend
                         {

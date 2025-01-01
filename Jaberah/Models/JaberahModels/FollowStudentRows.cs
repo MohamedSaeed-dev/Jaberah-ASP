@@ -8,8 +8,8 @@
         public int WithFriendId { get; set; }
         public WithTeacherFriend WithTeacher { get; set; }
         public WithTeacherFriend WithFriend { get; set; }
-        public byte Attendance { get; set; }
-        public byte Behavior { get; set; }
+        public float Attendance { get; set; }
+        public float Behavior { get; set; }
         public string? Notes { get; set; }
         public int FollowStudentsId { get; set; }
         public FollowStudent FollowStudents { get; set; }
