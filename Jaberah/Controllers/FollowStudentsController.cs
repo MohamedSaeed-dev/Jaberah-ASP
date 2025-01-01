@@ -47,7 +47,7 @@ namespace Jaberah.Controllers
                     VerseToFriend = x.WithFriend.To.Verse,
                     PagesFriend = x.WithFriend.Pages,
                     RateFriend = x.WithFriend.Rate,
-                    Notes = x.Notes
+                    Notes = x.Notes ?? ""
                 })).FirstOrDefaultAsync();
 
             if (followStudentQuery is null)
@@ -192,7 +192,7 @@ namespace Jaberah.Controllers
                             VerseToFriend = row.WithFriend.To.Verse,
                             PagesFriend = row.WithFriend.Pages,
                             RateFriend = row.WithFriend.Rate ?? "",
-                            Notes = row.Notes
+                            Notes = row.Notes ?? ""
                         })).ToList()
                 }).ToListAsync();
 
