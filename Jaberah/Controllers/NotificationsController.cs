@@ -92,7 +92,7 @@ namespace Jaberah.Controllers
         [HttpGet]
         public async Task<IActionResult> GetNotifications([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var notifications = await _db.Notifications.AsNoTracking().Skip((pageNumber - 1) * pageSize).Take(pageSize).OrderByDescending(x => x.CreatedAt).ToListAsync();
+            var notifications = await _db.Notifications.AsNoTracking().Skip((pageNumber - 1) * pageSize).Take(pageSize).OrderByDescending(x => x.).ToListAsync();
             return Ok(notifications);
         }
 
