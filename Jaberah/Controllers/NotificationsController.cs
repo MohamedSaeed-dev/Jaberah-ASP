@@ -92,7 +92,7 @@ namespace Jaberah.Controllers
         [HttpGet]
         public async Task<IActionResult> GetNotifications([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var notifications = await _db.Notifications.AsNoTracking().Skip((pageNumber - 1) * pageSize).Take(pageSize).OrderByDescending(x => x.).ToListAsync();
+            var notifications = await _db.Notifications.AsNoTracking().Skip((pageNumber - 1) * pageSize).Take(pageSize).OrderByDescending(x => x.CreatedAt).ToListAsync();
             return Ok(notifications);
         }
 
@@ -106,7 +106,8 @@ namespace Jaberah.Controllers
             int hijriYear = hijriCalendar.GetYear(currentDateTime);
             int hijriMonth = hijriCalendar.GetMonth(currentDateTime);
             int hijriDay = hijriCalendar.GetDayOfMonth(currentDateTime);
-            int hijriHour = currentDateTime.Hour;
+            int hijriHour = currentDateTime.Hour % 12;
+            if (hijriHour == 0) hijriHour = 12;
             int hijriMinute = currentDateTime.Minute;
             int hijriSecond = currentDateTime.Second;
             int hijriMillisecond = currentDateTime.Millisecond;
