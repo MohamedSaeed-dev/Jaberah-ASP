@@ -29,6 +29,7 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "اسم المستخدم او كلمة المرور خاطئة" });
             }
 
+
             var isPasswordValid = BCrypt.Net.BCrypt.Verify(model.Password, teacher.Password);
 
             if (!isPasswordValid)
@@ -52,6 +53,9 @@ namespace Jaberah.Controllers
             };
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
+
+            teacher.FCMToken = model.FCMToken;
+            await _db.SaveChangesAsync();
 
             var userData = new AuthTeacher
             {

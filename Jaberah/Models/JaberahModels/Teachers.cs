@@ -6,6 +6,7 @@
         public string TeacherName { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+        public string? FCMToken { get; set; }
         public Role Role { get; set; }
         public ICollection<Group> Groups { get; set; }
         public ICollection<TeachersSalariesRow> TeachersSalariesRow { get; set; }

@@ -8,6 +8,5 @@ namespace Jaberah.Models.ViewModels.Teachers
         public string TeacherName { get; set; }
         public string PhoneNumber { get; set; }
         public Role Role { get; set; }
-        public bool? AdminHasGroups { get; set; }
     }
 }

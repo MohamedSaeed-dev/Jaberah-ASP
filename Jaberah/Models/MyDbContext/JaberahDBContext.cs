@@ -130,7 +130,8 @@ namespace Jaberah.Models.MyDbContext
             modelBuilder.Entity<Notification>(entity =>
             {
                 entity.HasKey(n => n.Id);
-                entity.Property(n => n.Message).IsRequired();
+                entity.Property(n => n.Title).IsRequired();
+                entity.Property(n => n.Body).IsRequired();
                 entity.Property(n => n.CreatedAt).IsRequired();
             });
 
