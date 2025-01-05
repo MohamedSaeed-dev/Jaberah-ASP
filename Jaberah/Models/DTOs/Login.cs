@@ -8,5 +8,11 @@
             public string Password { get; set; }
             public string FCMToken { get; set; }
         }
+
+        public record UpdateFCMTokenDTO
+        {
+            public int UserId { get; set; }
+            public string Token { get; set; }
+        }
     }
 }

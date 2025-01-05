@@ -12,88 +12,118 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using Jaberah.Models.ViewModels.Notifications;
 using Microsoft.EntityFrameworkCore;
+using Jaberah.Helpers;
+using Microsoft.Extensions.Caching.Memory;
+using System.Text.RegularExpressions;
 
 namespace Jaberah.Controllers
 {
     [Route("api/notifications")]
     [ApiController]
-    public class NotificationsController : ControllerBase
+    public class NotificationsController(JaberahDBContext db, IMapper mapper, IConfiguration config, IMemoryCache cache) : ControllerBase
     {
-        private readonly JaberahDBContext _db;
-        private readonly IMapper _mapper;
-        private readonly IConfiguration _config;
-        private readonly GoogleCredential _googleCredential;
-
-        public NotificationsController(JaberahDBContext db, IMapper mapper, IConfiguration config)
-        {
-            _db = db;
-            _mapper = mapper;
-            _config = config;
-            _googleCredential = GoogleCredential.FromFile(_config["FCM:ServiceAccountFilePath"])
+        private readonly JaberahDBContext _db = db;
+        private readonly IMapper _mapper = mapper;
+        private readonly IConfiguration _config = config;
+        private readonly IMemoryCache _cache = cache;
+        private readonly GoogleCredential _googleCredential = GoogleCredential.FromFile(config["FCM:ServiceAccountFilePath"])
                 .CreateScoped("https://www.googleapis.com/auth/firebase.messaging");
-        }
+
+        private readonly string _cacheKey = "notifications";
 
         [HttpPost("send")]
         public async Task<IActionResult> SendNotification([FromBody] NotificationsDTO message)
         {
             var accessToken = await _googleCredential.UnderlyingCredential.GetAccessTokenForRequestAsync();
-
-            var teacherTokens = _db.Teachers
-                                    .Where(u => u.Role == Role.TEACHER && !string.IsNullOrWhiteSpace(u.FCMToken))
-                                    .Select(u => u.FCMToken)
-                                    .ToList();
+            var teacherTokens = await _db.Teachers
+                                         .AsNoTracking()
+                                         .Where(u => u.Role == Role.TEACHER && !string.IsNullOrWhiteSpace(u.FCMToken))
+                                         .Select(u => u.FCMToken!)
+                                         .ToListAsync();
 
             if (teacherTokens.Count == 0)
             {
                 return NotFound(new { message = "لايوجد اجهزة للارسال لهم" });
             }
 
-            var messageNotification = new NotificationMessage
+            using var client = new HttpClient
             {
-                message = new MessageModel
+                DefaultRequestHeaders =
                 {
-                    token = "",
-                    notification = new NotificationModel
-                    {
-                        title = message.Title,
-                        body = message.Body
-                    },
+                    Authorization = new AuthenticationHeaderValue("Bearer", accessToken)
                 }
             };
 
-            using (var client = new HttpClient())
+            var messageNotification = new
             {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-                foreach (var token in teacherTokens)
+                message = new
                 {
-                    messageNotification.message.token = token!;
-                    var json = JsonConvert.SerializeObject(messageNotification);
-
-                    var content = new StringContent(json, Encoding.UTF8, "application/json");
-                    var response = await client.PostAsync($"https://fcm.googleapis.com/v1/projects/{_config["FCM:projectId"]}/messages:send", content);
-
-                    if (!response.IsSuccessStatusCode)
+                    token = string.Empty,
+                    notification = new
                     {
-                        // logs
-                        continue;
+                        title = message.Title,
+                        body = message.Body
                     }
                 }
+            };
 
-                var notification = _mapper.Map<Notification>(message);
-                notification.CreatedAt = GetCurrentHijriDateTime();
-                await _db.Notifications.AddAsync(notification);
-                await _db.SaveChangesAsync();
+            var tasks = teacherTokens.Select(async token =>
+            {
+                var payload = messageNotification with { message = messageNotification.message with { token = token } };
+                var json = JsonConvert.SerializeObject(payload);
 
-                return Ok(new { message = "تم ارسال الاشعار بنجاح" });
-            }
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var response = await client.PostAsync($"https://fcm.googleapis.com/v1/projects/{_config["FCM:projectId"]}/messages:send", content);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    // Log errors
+                }
+            });
+
+            await Task.WhenAll(tasks);
+            var notification = _mapper.Map<Notification>(message);
+            notification.CreatedAt = GetCurrentHijriDateTime();
+            await _db.Notifications.AddAsync(notification);
+            await _db.SaveChangesAsync();
+            _cache.Remove(_cacheKey);
+            return Ok(new { message = "تم ارسال الاشعار بنجاح" });
         }
+
 
         [HttpGet]
         public async Task<IActionResult> GetNotifications([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var notifications = await _db.Notifications.AsNoTracking().Skip((pageNumber - 1) * pageSize).Take(pageSize).OrderByDescending(x => x.CreatedAt).ToListAsync();
+            if(!_cache.TryGetValue(_cacheKey, out PagedList<Notification> notifications))
+            {
+                var query = await _db.Notifications.AsNoTracking().OrderByDescending(x => x.CreatedAt).ToPagedListAsync(pageNumber, pageSize);
+                _cache.Set(_cacheKey, query, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(7),
+                    SlidingExpiration = TimeSpan.FromHours(12)
+                });
+
+            }
             return Ok(notifications);
+        }
+
+        [HttpDelete("{notificationId}")]
+        public async Task<IActionResult> DeleteNotification(int id)
+        {
+            if(id == default)
+            {
+                return BadRequest(new { message = "البيانات خاطئة" });
+            }
+            var notification = await _db.Notifications.FirstOrDefaultAsync(x => x.Id == id);
+            if(notification == null)
+            {
+                return BadRequest(new { message = "لايوجد اشعار" });
+            }
+
+            _db.Notifications.Remove(notification);
+            await _db.SaveChangesAsync();
+            _cache.Remove(_cacheKey);
+            return Ok(new { message = "تم الحذف بنجاح" });
         }
 
         [NonAction]
@@ -101,20 +131,15 @@ namespace Jaberah.Controllers
         {
             HijriCalendar hijriCalendar = new HijriCalendar();
 
-            DateTime currentDateTime = DateTime.Now;
-
+            DateTime currentDateTime = DateTime.UtcNow.AddHours(3);
             int hijriYear = hijriCalendar.GetYear(currentDateTime);
             int hijriMonth = hijriCalendar.GetMonth(currentDateTime);
             int hijriDay = hijriCalendar.GetDayOfMonth(currentDateTime);
-            int hijriHour = currentDateTime.Hour % 12;
-            if (hijriHour == 0) hijriHour = 12;
-            int hijriMinute = currentDateTime.Minute;
-            int hijriSecond = currentDateTime.Second;
-            int hijriMillisecond = currentDateTime.Millisecond;
 
-            DateTime gregorianDateTime = hijriCalendar.ToDateTime(hijriYear, hijriMonth, hijriDay, hijriHour, hijriMinute, hijriSecond, hijriMillisecond);
+            DateTime hijriDateTime = new(hijriYear, hijriMonth, hijriDay,
+                currentDateTime.Hour, currentDateTime.Minute, currentDateTime.Second, currentDateTime.Millisecond);
 
-            return gregorianDateTime;
+            return hijriDateTime;
         }
 
 

@@ -68,5 +68,27 @@ namespace Jaberah.Controllers
             return Ok(new { user = userData, token = tokenHandler.WriteToken(token) });
         }
 
+        [HttpPatch("update-fcm-token")]
+        public async Task<IActionResult> UpdateFCMToken([FromBody] UpdateFCMTokenDTO model)
+        {
+            if(model == default || model.UserId == default || model.Token == default)
+            {
+                return BadRequest(new { message = "البيانات خاطئة" });
+            }
+            var teacher = await _db.Teachers.FirstOrDefaultAsync(x => x.Id == model.UserId);
+            if (teacher == null)
+            {
+                return BadRequest(new {message = "لايوجد معلم"});
+            }
+
+            teacher.FCMToken = model.Token;
+
+            await _db.SaveChangesAsync();
+
+            return Ok(new {message = "تم التحديث بنجاح"});
+
+        }
+
+
     }
 }
