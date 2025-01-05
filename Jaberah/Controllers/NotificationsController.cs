@@ -96,8 +96,8 @@ namespace Jaberah.Controllers
         {
             if(!_cache.TryGetValue(_cacheKey, out PagedList<Notification> notifications))
             {
-                var query = await _db.Notifications.AsNoTracking().OrderByDescending(x => x.CreatedAt).ToPagedListAsync(pageNumber, pageSize);
-                _cache.Set(_cacheKey, query, new MemoryCacheEntryOptions
+                notifications = await _db.Notifications.AsNoTracking().OrderByDescending(x => x.CreatedAt).ToPagedListAsync(pageNumber, pageSize);
+                _cache.Set(_cacheKey, notifications, new MemoryCacheEntryOptions
                 {
                     AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(7),
                     SlidingExpiration = TimeSpan.FromHours(12)
