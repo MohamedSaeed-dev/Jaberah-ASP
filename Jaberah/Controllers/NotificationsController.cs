@@ -5,27 +5,21 @@ using Jaberah.Models.MyDbContext;
 using Microsoft.AspNetCore.Mvc;
 using Google.Apis.Auth.OAuth2;
 using Newtonsoft.Json;
-using System.Net.Http;
 using System.Text;
-using System.Threading.Tasks;
 using System.Globalization;
 using System.Net.Http.Headers;
-using Jaberah.Models.ViewModels.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Jaberah.Helpers;
-using Microsoft.Extensions.Caching.Memory;
-using System.Text.RegularExpressions;
 
 namespace Jaberah.Controllers
 {
     [Route("api/notifications")]
     [ApiController]
-    public class NotificationsController(JaberahDBContext db, IMapper mapper, IConfiguration config, IMemoryCache cache) : ControllerBase
+    public class NotificationsController(JaberahDBContext db, IMapper mapper, IConfiguration config) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
         private readonly IMapper _mapper = mapper;
         private readonly IConfiguration _config = config;
-        private readonly IMemoryCache _cache = cache;
         private readonly GoogleCredential _googleCredential = GoogleCredential.FromFile(config["FCM:ServiceAccountFilePath"])
                 .CreateScoped("https://www.googleapis.com/auth/firebase.messaging");
 
@@ -35,15 +29,57 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> SendNotification([FromBody] NotificationsDTO message)
         {
             var accessToken = await _googleCredential.UnderlyingCredential.GetAccessTokenForRequestAsync();
-            var teacherTokens = await _db.Teachers
-                                         .AsNoTracking()
-                                         .Where(u => u.Role == Role.TEACHER && !string.IsNullOrWhiteSpace(u.FCMToken))
-                                         .Select(u => u.FCMToken!)
-                                         .ToListAsync();
 
-            if (teacherTokens.Count == 0)
+
+            using var client = new HttpClient
             {
-                return NotFound(new { message = "لايوجد اجهزة للارسال لهم" });
+                DefaultRequestHeaders =
+                {
+                    Authorization = new AuthenticationHeaderValue("Bearer", accessToken)
+                }
+            };
+
+            var messageNotification = new
+            {
+                message = new
+                {
+                    topic = "public",
+                    notification = new
+                    {
+                        title = message.Title,
+                        body = message.Body
+                    }
+                }
+            };
+
+            var json = JsonConvert.SerializeObject(messageNotification);
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await client.PostAsync($"https://fcm.googleapis.com/v1/projects/{_config["FCM:projectId"]}/messages:send", content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return BadRequest(new { message = "حدث خطأ في ارسال الاشعار للمعلمين" });
+            }
+
+            var notification = _mapper.Map<Notification>(message);
+            notification.CreatedAt = GetCurrentHijriDateTime();
+            await _db.Notifications.AddAsync(notification);
+            await _db.SaveChangesAsync();
+            return Ok(new { message = "تم ارسال الاشعار بنجاح" });
+        }
+
+        [HttpPost("send/{teacherId}")]
+        public async Task<IActionResult> SendNotificationToTeacher(int teacherId, [FromBody] NotificationsDTO message)
+        {
+            var accessToken = await _googleCredential.UnderlyingCredential.GetAccessTokenForRequestAsync();
+            var teacher = await _db.Teachers
+                                         .AsNoTracking()
+                                         .FirstOrDefaultAsync(u => u.Role == Role.TEACHER && u.Id == teacherId);
+
+            if (teacher == null)
+            {
+                return NotFound(new { message = "لايوجد معلم للارسال" });
             }
 
             using var client = new HttpClient
@@ -58,7 +94,7 @@ namespace Jaberah.Controllers
             {
                 message = new
                 {
-                    token = string.Empty,
+                    token = teacher.FCMToken,
                     notification = new
                     {
                         title = message.Title,
@@ -67,26 +103,19 @@ namespace Jaberah.Controllers
                 }
             };
 
-            var tasks = teacherTokens.Select(async token =>
+            var json = JsonConvert.SerializeObject(messageNotification);
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await client.PostAsync($"https://fcm.googleapis.com/v1/projects/{_config["FCM:projectId"]}/messages:send", content);
+
+            if (!response.IsSuccessStatusCode)
             {
-                var payload = messageNotification with { message = messageNotification.message with { token = token } };
-                var json = JsonConvert.SerializeObject(payload);
+                return BadRequest(new { message = "حدث خطأ في ارسال الاشعار للمعلم" });
+            }
 
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-                var response = await client.PostAsync($"https://fcm.googleapis.com/v1/projects/{_config["FCM:projectId"]}/messages:send", content);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    // Log errors
-                }
-            });
-
-            await Task.WhenAll(tasks);
             var notification = _mapper.Map<Notification>(message);
             notification.CreatedAt = GetCurrentHijriDateTime();
             await _db.Notifications.AddAsync(notification);
-            await _db.SaveChangesAsync();
-            _cache.Remove(_cacheKey);
             return Ok(new { message = "تم ارسال الاشعار بنجاح" });
         }
 
@@ -94,20 +123,11 @@ namespace Jaberah.Controllers
         [HttpGet]
         public async Task<IActionResult> GetNotifications([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            if(!_cache.TryGetValue(_cacheKey, out PagedList<Notification> notifications))
-            {
-                notifications = await _db.Notifications.AsNoTracking().OrderByDescending(x => x.CreatedAt).ToPagedListAsync(pageNumber, pageSize);
-                _cache.Set(_cacheKey, notifications, new MemoryCacheEntryOptions
-                {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(7),
-                    SlidingExpiration = TimeSpan.FromHours(12)
-                });
-
-            }
-            return Ok(notifications);
+            return Ok(await _db.Notifications.AsNoTracking().OrderByDescending(x => x.CreatedAt).ToPagedListAsync(pageNumber, pageSize));
         }
 
-        [HttpDelete("{notificationId}")]
+
+        [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteNotification(int id)
         {
             if(id == default)
@@ -122,7 +142,6 @@ namespace Jaberah.Controllers
 
             _db.Notifications.Remove(notification);
             await _db.SaveChangesAsync();
-            _cache.Remove(_cacheKey);
             return Ok(new { message = "تم الحذف بنجاح" });
         }
 
