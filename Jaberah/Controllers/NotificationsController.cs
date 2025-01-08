@@ -116,6 +116,7 @@ namespace Jaberah.Controllers
             var notification = _mapper.Map<Notification>(message);
             notification.CreatedAt = GetCurrentHijriDateTime();
             await _db.Notifications.AddAsync(notification);
+            await _db.SaveChangesAsync();
             return Ok(new { message = "تم ارسال الاشعار بنجاح" });
         }
 
