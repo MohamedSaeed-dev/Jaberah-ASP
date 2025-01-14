@@ -10,6 +10,9 @@ obj/
 # Configuration files
 appsettings.json
 appsettings.Development.json
+appsettings.Production.json
+appsettings.Production.Development.json
+
 jaberahnotifications-firebase-adminsdk-b1vzd-8a0771c094.json
 
 # HTTP file

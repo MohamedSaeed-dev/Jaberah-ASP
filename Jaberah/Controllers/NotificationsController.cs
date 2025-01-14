@@ -10,59 +10,40 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using Microsoft.EntityFrameworkCore;
 using Jaberah.Helpers;
+using FirebaseAdmin.Messaging;
 
 namespace Jaberah.Controllers
 {
     [Route("api/notifications")]
     [ApiController]
-    public class NotificationsController(JaberahDBContext db, IMapper mapper, IConfiguration config) : ControllerBase
+    public class NotificationsController(JaberahDBContext db, IMapper mapper) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
         private readonly IMapper _mapper = mapper;
-        private readonly IConfiguration _config = config;
-        private readonly GoogleCredential _googleCredential = GoogleCredential.FromFile(config["FCM:ServiceAccountFilePath"])
-                .CreateScoped("https://www.googleapis.com/auth/firebase.messaging");
-
-        private readonly string _cacheKey = "notifications";
 
         [HttpPost("send")]
         public async Task<IActionResult> SendNotification([FromBody] NotificationsDTO message)
         {
-            var accessToken = await _googleCredential.UnderlyingCredential.GetAccessTokenForRequestAsync();
-
-
-            using var client = new HttpClient
+            var messageBuilder = new Message()
             {
-                DefaultRequestHeaders =
+                Notification = new FirebaseAdmin.Messaging.Notification()
                 {
-                    Authorization = new AuthenticationHeaderValue("Bearer", accessToken)
-                }
+                    Title = message.Title,
+                    Body = message.Body,
+                },
+                Topic = "public"
             };
 
-            var messageNotification = new
+            try
             {
-                message = new
-                {
-                    topic = "public",
-                    notification = new
-                    {
-                        title = message.Title,
-                        body = message.Body
-                    }
-                }
-            };
-
-            var json = JsonConvert.SerializeObject(messageNotification);
-
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PostAsync($"https://fcm.googleapis.com/v1/projects/{_config["FCM:projectId"]}/messages:send", content);
-
-            if (!response.IsSuccessStatusCode)
+                string response = await FirebaseMessaging.DefaultInstance.SendAsync(messageBuilder);
+            }
+            catch
             {
-                return BadRequest(new { message = "حدث خطأ في ارسال الاشعار للمعلمين" });
+                return StatusCode(500, new { message = "حدث خطأ في ارسال الاشعار للمعلمين" });
             }
 
-            var notification = _mapper.Map<Notification>(message);
+            var notification = _mapper.Map<Models.JaberahModels.Notification>(message);
             notification.CreatedAt = GetCurrentHijriDateTime();
             await _db.Notifications.AddAsync(notification);
             await _db.SaveChangesAsync();
@@ -72,7 +53,6 @@ namespace Jaberah.Controllers
         [HttpPost("send/{teacherId}")]
         public async Task<IActionResult> SendNotificationToTeacher(int teacherId, [FromBody] NotificationsDTO message)
         {
-            var accessToken = await _googleCredential.UnderlyingCredential.GetAccessTokenForRequestAsync();
             var teacher = await _db.Teachers
                                          .AsNoTracking()
                                          .FirstOrDefaultAsync(u => u.Role == Role.TEACHER && u.Id == teacherId);
@@ -82,38 +62,26 @@ namespace Jaberah.Controllers
                 return NotFound(new { message = "لايوجد معلم للارسال" });
             }
 
-            using var client = new HttpClient
+            var messageBuilder = new Message()
             {
-                DefaultRequestHeaders =
+                Notification = new FirebaseAdmin.Messaging.Notification()
                 {
-                    Authorization = new AuthenticationHeaderValue("Bearer", accessToken)
-                }
+                    Title = message.Title,
+                    Body = message.Body,
+                },
+                Token = teacher.FCMToken
             };
 
-            var messageNotification = new
+            try
             {
-                message = new
-                {
-                    token = teacher.FCMToken,
-                    notification = new
-                    {
-                        title = message.Title,
-                        body = message.Body
-                    }
-                }
-            };
-
-            var json = JsonConvert.SerializeObject(messageNotification);
-
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PostAsync($"https://fcm.googleapis.com/v1/projects/{_config["FCM:projectId"]}/messages:send", content);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                return BadRequest(new { message = "حدث خطأ في ارسال الاشعار للمعلم" });
+                string response = await FirebaseMessaging.DefaultInstance.SendAsync(messageBuilder);
             }
-
-            var notification = _mapper.Map<Notification>(message);
+            catch
+            {
+                return StatusCode(500, new { message = "حدث خطأ في ارسال الاشعار للمعلم" });
+            }
+            
+            var notification = _mapper.Map<Models.JaberahModels.Notification>(message);
             notification.CreatedAt = GetCurrentHijriDateTime();
             await _db.Notifications.AddAsync(notification);
             await _db.SaveChangesAsync();

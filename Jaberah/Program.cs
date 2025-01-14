@@ -1,6 +1,9 @@
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 using Jaberah.Middlewares;
 using Jaberah.Models.MyDbContext;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -37,6 +40,11 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key)
     };
+});
+
+FirebaseApp.Create(new AppOptions()
+{
+    Credential = GoogleCredential.FromFile(builder.Configuration["FCM:ServiceAccountFilePathLocal"]),
 });
 
 builder.Services.AddAuthorization();
