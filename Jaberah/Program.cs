@@ -41,10 +41,15 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(key)
     };
 });
-
+var serviceAccountFilePath = builder.Configuration["FCM:ServiceAccountFilePath"];
+if (string.IsNullOrEmpty(serviceAccountFilePath))
+{
+    throw new InvalidOperationException("Firebase service account file path is not configured.");
+}
+Console.WriteLine(serviceAccountFilePath);
 FirebaseApp.Create(new AppOptions()
 {
-    Credential = GoogleCredential.FromFile(builder.Configuration["FCM:ServiceAccountFilePathLocal"]),
+    Credential = GoogleCredential.FromFile(builder.Configuration["FCM:ServiceAccountFilePath"]),
 });
 
 builder.Services.AddAuthorization();
