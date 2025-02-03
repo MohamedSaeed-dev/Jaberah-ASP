@@ -3,6 +3,7 @@ using Google.Apis.Auth.OAuth2;
 using Jaberah.Middlewares;
 using Jaberah.Models.MyDbContext;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -46,13 +47,18 @@ if (string.IsNullOrEmpty(serviceAccountFilePath))
 {
     throw new InvalidOperationException("Firebase service account file path is not configured.");
 }
-Console.WriteLine(serviceAccountFilePath);
 FirebaseApp.Create(new AppOptions()
 {
-    Credential = GoogleCredential.FromFile(builder.Configuration["FCM:ServiceAccountFilePath"]),
+    Credential = GoogleCredential.FromFile(serviceAccountFilePath),
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // All endpoints require authentication unless [AllowAnonymous] is used
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 builder.Services.AddSwaggerGen(sw =>
 {

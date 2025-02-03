@@ -1,6 +1,7 @@
 ﻿using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
 using Jaberah.Models.ViewModels.Teachers;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -19,6 +20,7 @@ namespace Jaberah.Controllers
         private readonly IConfiguration _configuration = configuration;
 
         [HttpPost("login")]
+        [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] LoginDTO model)
         {
             var teacher = await _db.Teachers.Include(x => x.Groups)
@@ -69,6 +71,7 @@ namespace Jaberah.Controllers
         }
 
         [HttpPatch("update-fcm-token")]
+        [AllowAnonymous]
         public async Task<IActionResult> UpdateFCMToken([FromBody] UpdateFCMTokenDTO model)
         {
             if(model == default || model.UserId == default || model.Token == default)
