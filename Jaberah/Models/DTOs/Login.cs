@@ -9,6 +9,11 @@
             public string FCMToken { get; set; }
         }
 
+        public record RefreshDTO
+        {
+            public string RefreshToken { get; set; }
+        }
+
         public record UpdateFCMTokenDTO
         {
             public int UserId { get; set; }

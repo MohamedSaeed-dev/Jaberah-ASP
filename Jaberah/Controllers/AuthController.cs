@@ -1,26 +1,23 @@
-﻿using Jaberah.Models.JaberahModels;
+﻿using Jaberah.Middlewares;
+using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
 using Jaberah.Models.ViewModels.Teachers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 using static Jaberah.Models.DTOs.Login;
 
 namespace Jaberah.Controllers
 {
     [Route("api/auth")]
     [ApiController]
-    public class AuthController(JaberahDBContext db, IConfiguration configuration) : ControllerBase
+    public class AuthController(JaberahDBContext db, TokenHelper token) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
-        private readonly IConfiguration _configuration = configuration;
+        private readonly TokenHelper _token = token;
 
-        [HttpPost("login")]
         [AllowAnonymous]
+        [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDTO model)
         {
             var teacher = await _db.Teachers.Include(x => x.Groups)
@@ -39,22 +36,8 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "اسم المستخدم او كلمة المرور خاطئة" });
             }
 
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes(_configuration["TokenKey"]!);
-
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(
-                [
-                new Claim(ClaimTypes.Name, teacher.TeacherName),
-                new Claim("PhoneNumber", teacher.PhoneNumber),
-                new Claim(ClaimTypes.Role, teacher.Role.ToString())
-            ]),
-                Expires = DateTime.UtcNow.AddDays(30),
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-            };
-
-            var token = tokenHandler.CreateToken(tokenDescriptor);
+            var accessToken = _token.GenerateToken(teacher.Id.ToString(), 2);
+            var refreshToken = _token.GenerateToken(teacher.Id.ToString(), 30);
 
             teacher.FCMToken = model.FCMToken;
             await _db.SaveChangesAsync();
@@ -67,14 +50,30 @@ namespace Jaberah.Controllers
                 Role = teacher.Role,
             };
 
-            return Ok(new { user = userData, token = tokenHandler.WriteToken(token) });
+            return Ok(new { user = userData, accessToken, refreshToken });
+        }
+
+        [AllowAnonymous]
+        [HttpPost("refresh")]
+        public async Task<IActionResult> Refresh([FromBody] RefreshDTO refreshDTO)
+        {
+            if(string.IsNullOrWhiteSpace(refreshDTO.RefreshToken))
+            {
+                return BadRequest(new { message = "البيانات خاطئة" });
+            }
+            var user = await _token.VerifyToken(refreshDTO.RefreshToken);
+            if(user == default)
+            {
+                return Forbid();
+            }
+
+            return Ok(new { refrehToken = _token.GenerateToken(user.Id.ToString(), 30) });
         }
 
         [HttpPatch("update-fcm-token")]
-        [AllowAnonymous]
         public async Task<IActionResult> UpdateFCMToken([FromBody] UpdateFCMTokenDTO model)
         {
-            if(model == default || model.UserId == default || model.Token == default)
+            if(model == default || model.UserId <= 0 || string.IsNullOrWhiteSpace( model.Token))
             {
                 return BadRequest(new { message = "البيانات خاطئة" });
             }

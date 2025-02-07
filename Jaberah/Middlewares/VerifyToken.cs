@@ -1,24 +1,22 @@
-﻿using Jaberah.Models.ViewModels;
+﻿using Jaberah.Models.JaberahModels;
+using Jaberah.Models.MyDbContext;
+using Jaberah.Models.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 namespace Jaberah.Middlewares
 {
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = true)]
-    public class VerifyTokenAttribute : ActionFilterAttribute
+    public class VerifyTokenAttribute(TokenHelper token) : ActionFilterAttribute
     {
-        private readonly IConfiguration _config;
-
-        public VerifyTokenAttribute(IConfiguration config)
-        {
-            _config = config;
-        }
-
+        private readonly TokenHelper _token = token;
         public override void OnActionExecuting(ActionExecutingContext context)
         {
-            var authHeader = context.HttpContext.Request.Headers["Authorization"].ToString();
+            var authHeader = context.HttpContext.Request.Headers.Authorization.ToString();
 
             if (string.IsNullOrWhiteSpace(authHeader))
             {
@@ -26,8 +24,14 @@ namespace Jaberah.Middlewares
                 return;
             }
 
-            var token = authHeader.Split(" ")[1];
-            var user = VerifyToken(token);
+            var scheme = authHeader.Split(" ")[0];
+            var token = scheme.ToLower() == "bearer" ? authHeader.Split(" ")[1] : null;
+            if (token == null)
+            {
+                context.Result = new UnauthorizedResult();
+                return;
+            }
+            var user = _token.VerifyToken(token);
 
             if (user == null)
             {
@@ -39,11 +43,32 @@ namespace Jaberah.Middlewares
             base.OnActionExecuting(context);
         }
 
-        private UserViewModel? VerifyToken(string token)
+    }
+
+    public class TokenHelper(IConfiguration config, JaberahDBContext db)
+    {
+        private readonly IConfiguration _config = config;
+        private readonly JaberahDBContext _db = db;
+
+        public string GenerateToken(string id, int days)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(_config["TokenKey"]!);
+            var refreshTokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(
+                [
+                    new Claim(ClaimTypes.NameIdentifier, id),
+                ]),
+                Expires = DateTime.UtcNow.AddDays(30),
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+            return tokenHandler.WriteToken(tokenHandler.CreateToken(refreshTokenDescriptor));
+        }
+        public async Task<UserViewModel?> VerifyToken(string token)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var keyBytes = Encoding.ASCII.GetBytes(_config["TokenKey"]!);
-
             try
             {
                 var principal = tokenHandler.ValidateToken(token, new TokenValidationParameters
@@ -57,34 +82,18 @@ namespace Jaberah.Middlewares
                 }, out SecurityToken verifiedToken);
 
                 var jwtToken = (JwtSecurityToken)verifiedToken;
-
-                foreach (var claim in jwtToken.Claims)
-                {
-                    Console.WriteLine($"Claim: {claim.Type} = {claim.Value}");
-                }
-
-                var username = jwtToken.Claims.FirstOrDefault(x => x.Type == "unique_name")?.Value;
-                var phone = jwtToken.Claims.FirstOrDefault(x => x.Type == "PhoneNumber")?.Value;
-                var role = jwtToken.Claims.FirstOrDefault(x => x.Type == "role")?.Value;
-
-                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(phone) || string.IsNullOrEmpty(role))
+                var id = jwtToken.Claims.FirstOrDefault(x => x.Type == "nameid")?.Value; ;
+                if (string.IsNullOrEmpty(id))
                 {
                     return null;
                 }
-
-                return new UserViewModel
-                {
-                    Name = username,
-                    PhoneNumber = phone,
-                    Role = role
-                };
+                return await _db.Teachers.Select(x => new UserViewModel { Id = x.Id, Name = x.TeacherName, PhoneNumber = x.PhoneNumber, Role = x.Role.ToString() }).FirstOrDefaultAsync(x => x.Id == int.Parse(id));
             }
             catch
             {
                 return null;
             }
         }
-
     }
 
 }

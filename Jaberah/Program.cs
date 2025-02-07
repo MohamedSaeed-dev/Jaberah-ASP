@@ -22,6 +22,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<JaberahDBContext>(x => x.UseSqlServer(builder.Configuration.GetConnectionString("DB")));
 builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddScoped<VerifyTokenAttribute>();
+builder.Services.AddScoped<TokenHelper>();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddAuthentication(options =>
