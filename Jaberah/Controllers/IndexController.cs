@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jaberah.Controllers
@@ -7,6 +8,7 @@ namespace Jaberah.Controllers
     [ApiController]
     public class IndexController : ControllerBase
     {
+        [AllowAnonymous]
         [HttpGet]
         public async Task<IActionResult> Index()
         {
