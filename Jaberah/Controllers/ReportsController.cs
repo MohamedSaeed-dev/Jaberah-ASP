@@ -43,14 +43,6 @@ namespace Jaberah.Controllers
                             b => b.StudentId,
                             (a, b) => new { FollowStudent = a, MidFinal = b.DefaultIfEmpty() }
                         )
-                        .SelectMany(
-                            x => x.MidFinal,
-                            (x, b) => new
-                            {
-                                x.FollowStudent,
-                                Grade = b != null ? b.Grade : 0
-                            }
-                        )
                         .GroupBy(x => x.FollowStudent.Student)
                         .Select(g => new
                         {
@@ -61,7 +53,7 @@ namespace Jaberah.Controllers
                             GradeSum = Math.Min(g.Sum(x => x.FollowStudent.FollowStudentsRows.Count()) * 0.5, 10),
                             OralGradeSum = g.Sum(x => x.FollowStudent.Exams.OralExam),
                             PaperGradeSum = g.Sum(x => x.FollowStudent.Exams.PaperExam),
-                            MidFinalGrade = g.Sum(x => x.Grade)
+                            MidFinalGrade = g.SelectMany(x => x.MidFinal).Select(m => m.Grade).FirstOrDefault()
                         })
                         .ToListAsync()).Select(x => new SemesterReportForView
                         {

@@ -75,6 +75,7 @@ namespace Jaberah.Controllers
             {
                 final.Grade = grade.Grade ?? final.Grade;
             }
+            Console.WriteLine(grade.Grade);
             await _db.SaveChangesAsync();
             return Ok(new { message = "تم الحفظ بنجاح" });
         }
