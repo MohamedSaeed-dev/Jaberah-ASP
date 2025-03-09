@@ -60,7 +60,7 @@ namespace Jaberah.Middlewares
                 [
                     new Claim(ClaimTypes.NameIdentifier, id),
                 ]),
-                Expires = DateTime.UtcNow.AddDays(30),
+                Expires = DateTime.UtcNow.AddDays(days),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
             return tokenHandler.WriteToken(tokenHandler.CreateToken(refreshTokenDescriptor));
