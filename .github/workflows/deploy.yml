@@ -30,10 +30,12 @@ jobs:
       - name: Upload files to SFTP
         uses: appleboy/scp-action@master
         with:
-          server: ${{ secrets.SFTP_HOST }}
-          username: ${{ secrets.SFTP_USER }}
-          password: ${{ secrets.SFTP_PASSWORD }}
-          port: ${{ secrets.SFTP_PORT }}
-          localPath: "publish/*"
-          remotePath: "/wwwroot"
-          deleteRemoteFiles: false  # Change to true if you want to clear old files before uploading
+            host: ${{ secrets.SFTP_HOST }}
+            username: ${{ secrets.SFTP_USER }}
+            password: ${{ secrets.SFTP_PASSWORD }}
+            port: ${{ secrets.SFTP_PORT }}
+            source: "publish/*"
+            target: "/wwwroot"
+            strip_components: 0  # Keep directory structure
+            overwrite: true      # Overwrite existing files
+            rm: false            # Set to true if you want to remove remote files before upload
