@@ -1,13 +1,13 @@
-name: Deploy to Monster ASP via SFTP
+name: Deploy ASP.NET Web API
 
 on:
   push:
     branches:
-      - master
+      - master  # Change this if needed
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - name: Checkout repository
@@ -16,26 +16,20 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '9.0'
+          dotnet-version: '9.0'  # Adjust based on your project
 
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Build the project
+      - name: Build solution
         run: dotnet build --configuration Release --no-restore
 
-      - name: Publish the project
-        run: dotnet publish -c Release -o publish
+      - name: Publish application
+        run: dotnet publish -c Release -o ./publish
 
-      - name: Upload files to SFTP
-        uses: appleboy/scp-action@master
+      - name: Deploy to IIS Server
+        uses: azure/webapps-deploy@v3
         with:
-            host: ${{ secrets.SFTP_HOST }}
-            username: ${{ secrets.SFTP_USER }}
-            password: ${{ secrets.SFTP_PASSWORD }}
-            port: ${{ secrets.SFTP_PORT }}
-            source: "publish/*"
-            target: "/wwwroot"
-            strip_components: 0  # Keep directory structure
-            overwrite: true      # Overwrite existing files
-            rm: false            # Set to true if you want to remove remote files before upload
+          app-name: "site14114"  # Use msdeploySite value
+          publish-profile: ${{ secrets.PUBLISH_PROFILE }}
+          package: ./publish
