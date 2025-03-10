@@ -1,9 +1,9 @@
-name: Deploy ASP.NET Web API
+name: Deploy ASP.NET Web API to IIS Server
 
 on:
   push:
     branches:
-      - master  # Change this if needed
+      - master  # Adjust based on your branch
 
 jobs:
   build-and-deploy:
@@ -16,7 +16,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '9.0'  # Adjust based on your project
+          dotnet-version: '9.0'  # Adjust to your .NET version
 
       - name: Restore dependencies
         run: dotnet restore
@@ -27,9 +27,8 @@ jobs:
       - name: Publish application
         run: dotnet publish -c Release -o ./publish
 
-      - name: Deploy to IIS Server
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: "site14114"  # Use msdeploySite value
-          publish-profile: ${{ secrets.PUBLISH_PROFILE }}
-          package: ./publish
+      - name: Deploy to IIS via Web Deploy
+        run: |
+          $publishProfile = "${{ secrets.PUBLISH_PROFILE }}"
+          $publishPath = "./publish"
+          dotnet msdeploy --source:package="$publishPath" --dest:auto,computerName="site14114.siteasp.net",userName="site14114",password="C#d8=p4X7+Tg"
