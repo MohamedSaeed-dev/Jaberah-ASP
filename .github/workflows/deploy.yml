@@ -28,7 +28,7 @@ jobs:
         run: dotnet publish -c Release -o publish
 
       - name: Upload files to SFTP
-        uses: ncipollo/sftp-action@v1
+        uses: appleboy/scp-action@master
         with:
           server: ${{ secrets.SFTP_HOST }}
           username: ${{ secrets.SFTP_USER }}
