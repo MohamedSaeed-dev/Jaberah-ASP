@@ -1,34 +1,44 @@
-name: Deploy ASP.NET Web API to IIS Server
+name: Deploy ASP.NET Web API to Monster ASP
 
 on:
   push:
     branches:
-      - master  # Adjust based on your branch
+      - master  # Trigger deployment on push to the main branch
 
 jobs:
   build-and-deploy:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '9.0'  # Adjust to your .NET version
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '9.0'  # Replace with your .NET version
 
-      - name: Restore dependencies
-        run: dotnet restore
+    - name: Restore dependencies
+      run: dotnet restore
 
-      - name: Build solution
-        run: dotnet build --configuration Release --no-restore
+    - name: Build the project
+      run: dotnet build --configuration Release
 
-      - name: Publish application
-        run: dotnet publish -c Release -o ./publish
+    - name: Publish the project
+      run: dotnet publish --configuration Release --output ./publish
 
-      - name: Deploy to IIS via Web Deploy
-        run: |
-          $publishProfile = "${{ secrets.PUBLISH_PROFILE }}"
-          $publishPath = "./publish"
-          dotnet msdeploy --source:package="$publishPath" --dest:auto,computerName="site14114.siteasp.net",userName="site14114",password="C#d8=p4X7+Tg"
+    - name: Deploy to Monster ASP
+      uses: actions/upload-artifact@v3
+      with:
+        name: publish-output
+        path: ./publish
+
+    - name: Deploy using Publish Profile
+      env:
+        PUBLISH_PROFILE: ${{ secrets.PUBLISH_PROFILE }}
+      run: |
+        # Save the publish profile to a file
+        echo "$PUBLISH_PROFILE" > publishprofile.publishsettings
+
+        # Use MSDeploy to deploy the application
+        "C:\Program Files (x86)\IIS\Microsoft Web Deploy V3\msdeploy.exe" -verb:sync -source:contentPath='./publish' -dest:contentPath='site14114',publishSettings='publishprofile.publishsettings'
