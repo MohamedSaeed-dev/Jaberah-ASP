@@ -24,13 +24,10 @@ jobs:
     - name: Build the project
       run: dotnet build --configuration Release
 
-    - name: Publish to folder
-      run: dotnet publish ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ./publish
-
     - name: Deploy to Monster ASP via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.5
       with:
-          server: ${{ SFTP_HOST }} # Replace with Monster ASP's FTP server
+          server: ${{ secrets.SFTP_HOST }} # Replace with Monster ASP's FTP server
           username: ${{ secrets.SFTP_USERNAME }}
           password: ${{ secrets.SFTP_PASSWORD }}
           local-dir: ./publish/
