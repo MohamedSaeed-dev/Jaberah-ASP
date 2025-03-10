@@ -28,7 +28,7 @@ jobs:
         run: dotnet publish -c Release -o publish
 
       - name: Upload files to SFTP
-        uses: appleboy/scp-action@master
+        uses: appleboy/sftp-action@v0.1.6
         with:
           host: ${{ secrets.SFTP_HOST }}
           username: ${{ secrets.SFTP_USER }}
@@ -36,3 +36,4 @@ jobs:
           port: ${{ secrets.SFTP_PORT }}
           source: "publish/*"
           target: "/wwwroot"
+          overwrite: true  # Ensures files are updated
