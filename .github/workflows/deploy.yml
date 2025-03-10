@@ -24,21 +24,14 @@ jobs:
     - name: Build the project
       run: dotnet build --configuration Release
 
-    - name: Publish the project
-      run: dotnet publish --configuration Release --output ./publish
+    - name: Publish to folder
+      run: dotnet publish ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ./publish
 
-    - name: Deploy to Monster ASP
-      uses: actions/upload-artifact@v4
+    - name: Deploy to Monster ASP via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
       with:
-        name: publish-output
-        path: ./publish
-
-    - name: Deploy using Publish Profile
-      env:
-        PUBLISH_PROFILE: ${{ secrets.PUBLISH_PROFILE }}
-      run: |
-        # Save the publish profile to a file
-        echo "$PUBLISH_PROFILE" > publishprofile.publishsettings
-
-        # Use MSDeploy to deploy the application
-        "C:\Program Files (x86)\IIS\Microsoft Web Deploy V3\msdeploy.exe" -verb:sync -source:contentPath='./publish' -dest:contentPath='site14114',publishSettings='publishprofile.publishsettings'
+          server: ${{ SFTP_HOST }} # Replace with Monster ASP's FTP server
+          username: ${{ secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          local-dir: ./publish/
+          server-dir: /site14114/
