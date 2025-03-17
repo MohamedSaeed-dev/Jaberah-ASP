@@ -36,7 +36,7 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "اسم المستخدم او كلمة المرور خاطئة" });
             }
 
-            var accessToken = _token.GenerateToken(teacher.Id.ToString(), 2);
+            var accessToken = _token.GenerateToken(teacher.Id.ToString(), 7);
             var refreshToken = _token.GenerateToken(teacher.Id.ToString(), 30);
 
             teacher.FCMToken = model.FCMToken;
@@ -67,7 +67,7 @@ namespace Jaberah.Controllers
                 return Forbid();
             }
 
-            return Ok(new { accessToken = _token.GenerateToken(user.Id.ToString(), 2) });
+            return Ok(new { accessToken = _token.GenerateToken(user.Id.ToString(), 7) });
         }
 
         [HttpPatch("update-fcm-token")]
