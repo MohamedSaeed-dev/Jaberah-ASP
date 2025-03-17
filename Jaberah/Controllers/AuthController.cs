@@ -67,7 +67,7 @@ namespace Jaberah.Controllers
                 return Forbid();
             }
 
-            return Ok(new { refrehToken = _token.GenerateToken(user.Id.ToString(), 30) });
+            return Ok(new { accessToken = _token.GenerateToken(user.Id.ToString(), 2) });
         }
 
         [HttpPatch("update-fcm-token")]
