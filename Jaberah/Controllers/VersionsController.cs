@@ -43,6 +43,16 @@ namespace Jaberah.Controllers
             if (lastVersion == null) return NotFound(new { message = "version not found" });
             lastVersion.LatestVersion = version;
             lastVersion.URL = url;
+            var versionParts = version.Split('.').Select(int.Parse).ToArray();
+            var requiredParts = lastVersion.MinRequiredVersion.Split('.').Select(int.Parse).ToArray();
+            if (versionParts[0] >  requiredParts[0])
+            {
+                lastVersion.MinRequiredVersion = version;
+            }
+            else if (versionParts[1]  > requiredParts[1])
+            {
+                lastVersion.MinRequiredVersion = $"{versionParts[0]}.{versionParts[1]}.0";
+            }
             await _db.SaveChangesAsync();
             return Ok(new {message = "Updated Successfully"});
         }
