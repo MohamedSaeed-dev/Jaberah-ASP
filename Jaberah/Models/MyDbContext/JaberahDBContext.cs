@@ -1,5 +1,6 @@
 ﻿using Jaberah.Models.JaberahModels;
 using Microsoft.EntityFrameworkCore;
+using Version = Jaberah.Models.JaberahModels.Version;
 
 namespace Jaberah.Models.MyDbContext
 {
@@ -23,6 +24,7 @@ namespace Jaberah.Models.MyDbContext
         public DbSet<WithTeacherFriend> WithTeacherFriends { get; set; }
         public DbSet<Surah> Surahs { get; set; }
         public DbSet<MidFinal> MidFinals { get; set; }
+        public DbSet<Version> Versions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -36,6 +38,11 @@ namespace Jaberah.Models.MyDbContext
                       .WithOne(f => f.Exams)
                       .HasForeignKey<Exam>(e => e.FollowStudentsId)
                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Version>(ver =>
+            {
+                ver.HasKey(e => e.Id);
             });
 
             // MidFinal
