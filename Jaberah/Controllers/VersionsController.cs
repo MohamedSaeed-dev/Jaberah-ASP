@@ -37,7 +37,7 @@ namespace Jaberah.Controllers
         }
         [AllowAnonymous]
         [HttpPut]
-        public async Task<IActionResult> UpdateVersion([FromQuery] string version, [FromBody] string url)
+        public async Task<IActionResult> UpdateVersion([FromQuery] string version, [FromForm] string url)
         {
             var lastVersion = await _db.Versions.FirstOrDefaultAsync();
             if (lastVersion == null) return NotFound(new { message = "version not found" });
