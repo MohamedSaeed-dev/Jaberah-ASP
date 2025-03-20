@@ -42,7 +42,7 @@ namespace Jaberah.Controllers
             var lastVersion = await _db.Versions.FirstOrDefaultAsync();
             if (lastVersion == null) return NotFound(new { message = "version not found" });
             lastVersion.LatestVersion = version;
-            lastVersion.URL = url;
+            lastVersion.URL = url.Replace("dl=0", "dl=1");
             var versionParts = version.Split('.').Select(int.Parse).ToArray();
             var requiredParts = lastVersion.MinRequiredVersion.Split('.').Select(int.Parse).ToArray();
             if (versionParts[0] >  requiredParts[0])
