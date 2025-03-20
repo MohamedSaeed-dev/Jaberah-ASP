@@ -39,10 +39,11 @@ namespace Jaberah.Controllers
         [HttpPut]
         public async Task<IActionResult> UpdateVersion([FromQuery] string version, [FromForm] string url)
         {
+            if (string.IsNullOrWhiteSpace(version) || string.IsNullOrWhiteSpace(url)) return BadRequest(new {message = "invalid data"}); 
             var lastVersion = await _db.Versions.FirstOrDefaultAsync();
             if (lastVersion == null) return NotFound(new { message = "version not found" });
             lastVersion.LatestVersion = version;
-            lastVersion.URL = url.Replace("dl=0", "dl=1");
+            lastVersion.URL = url.Contains("dl=0") ? url.Replace("dl=0", "dl=1") : lastVersion.URL;
             var versionParts = version.Split('.').Select(int.Parse).ToArray();
             var requiredParts = lastVersion.MinRequiredVersion.Split('.').Select(int.Parse).ToArray();
             if (versionParts[0] >  requiredParts[0])
@@ -54,7 +55,7 @@ namespace Jaberah.Controllers
                 lastVersion.MinRequiredVersion = $"{versionParts[0]}.{versionParts[1]}.0";
             }
             await _db.SaveChangesAsync();
-            return Ok(new {message = "Updated Successfully"});
+            return Ok(lastVersion);
         }
         [NonAction]
         private int CompareVersions(string currentVersion, string requiredVersion)
