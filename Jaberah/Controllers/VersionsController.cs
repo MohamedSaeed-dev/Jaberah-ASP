@@ -11,29 +11,42 @@ namespace Jaberah.Controllers
 {
     [Route("api/versions")]
     [ApiController]
-    public class VersionsController(JaberahDBContext db) : ControllerBase
+    public class VersionsController(JaberahDBContext db, IMemoryCache cache) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
+        private readonly IMemoryCache _cache = cache;
+        
         [AllowAnonymous]
         [HttpGet]
         public async Task<IActionResult> GetLastVersion([FromQuery] string version)
         {
-            var appVersion = await _db.Versions
-            .FirstOrDefaultAsync();
+            if (!_cache.TryGetValue("appVer", out var appVer))
+{
+    var appVersion = await _db.Versions.FirstOrDefaultAsync();
 
-            if (appVersion == null) return NotFound(new { message = "version not found" });
+    if (appVersion == null) 
+        return NotFound(new { message = "version not found" });
 
-            bool isUpdateRequired = CompareVersions(version, appVersion.MinRequiredVersion) < 0;
-            bool isUpdateAvailable = CompareVersions(version, appVersion.LatestVersion) < 0;
+    bool isUpdateRequired = CompareVersions(version, appVersion.MinRequiredVersion) < 0;
+    bool isUpdateAvailable = CompareVersions(version, appVersion.LatestVersion) < 0;
 
-            return Ok(new
-            {
-                latestVersion = appVersion.LatestVersion,
-                minRequiredVersion = appVersion.MinRequiredVersion,
-                isUpdateRequired,
-                isUpdateAvailable,
-                url = appVersion.URL
-            });
+    appVer = new
+    {
+        latestVersion = appVersion.LatestVersion,
+        minRequiredVersion = appVersion.MinRequiredVersion,
+        isUpdateRequired,
+        isUpdateAvailable,
+        url = appVersion.URL
+    };
+
+    _cache.Set("appVer", appVer, new MemoryCacheEntryOptions
+    {
+        AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(7),
+        SlidingExpiration = TimeSpan.FromHours(12)
+    });
+}
+
+return Ok(appVer);
         }
         [AllowAnonymous]
         [HttpPut]
@@ -55,6 +68,7 @@ namespace Jaberah.Controllers
                 lastVersion.MinRequiredVersion = $"{versionParts[0]}.{versionParts[1]}.0";
             }
             await _db.SaveChangesAsync();
+            _cache.Remove("appVer");
             return Ok(lastVersion);
         }
         [NonAction]
