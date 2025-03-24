@@ -69,11 +69,6 @@ namespace Jaberah.Controllers
             {
                 var messageBuilder = new Message()
                 {
-                    Notification = new FirebaseAdmin.Messaging.Notification()
-                    {
-                        Title = "تحديث جديد",
-                        Body = $"{version}",
-                    },
                     Data = new Dictionary<string, string>
                     {
                         { "topic", "newVersion" },

@@ -11,6 +11,8 @@ using System.Net.Http.Headers;
 using Microsoft.EntityFrameworkCore;
 using Jaberah.Helpers;
 using FirebaseAdmin.Messaging;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using System;
 
 namespace Jaberah.Controllers
 {
@@ -30,6 +32,10 @@ namespace Jaberah.Controllers
                 {
                     Title = message.Title,
                     Body = message.Body,
+                },
+                Data = new Dictionary<string, string>
+                {
+                    { "topic", "public" },
                 },
                 Topic = "public"
             };
