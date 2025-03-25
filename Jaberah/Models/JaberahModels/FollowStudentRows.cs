@@ -1,8 +1,7 @@
 ﻿namespace Jaberah.Models.JaberahModels
 {
-    public class FollowStudentRow
+    public class FollowStudentRow : BaseEntity
     {
-        public int Id { get; set; }
         public int Day { get; set; }
         public int WithTeacherId { get; set; }
         public int WithFriendId { get; set; }

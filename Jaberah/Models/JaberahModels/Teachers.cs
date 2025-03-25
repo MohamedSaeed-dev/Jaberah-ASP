@@ -1,8 +1,7 @@
 ﻿namespace Jaberah.Models.JaberahModels
 {
-    public class Teacher
+    public class Teacher : BaseEntity
     {
-        public int Id { get; set; }
         public string TeacherName { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;

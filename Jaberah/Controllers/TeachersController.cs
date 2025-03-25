@@ -246,7 +246,7 @@ namespace Jaberah.Controllers
                 return NotFound(new { message = "لايوجد معلم" });
             }
 
-            _db.Teachers.Remove(teacher);
+            _db.SoftDelete(teacher);
             await _db.SaveChangesAsync();
             _cache.Remove("GroupsCache");
             _cache.Remove("GroupsCache_WithoutTeacher");

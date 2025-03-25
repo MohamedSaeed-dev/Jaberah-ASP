@@ -226,7 +226,7 @@ namespace Jaberah.Controllers
             if (group == null)
                 return NotFound(new { message = "لاتوجد حلقة" });
 
-            _db.Groups.Remove(group);
+            _db.SoftDelete(group);
             await _db.SaveChangesAsync();
 
             InvalidateCache();

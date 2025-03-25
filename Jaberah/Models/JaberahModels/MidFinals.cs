@@ -1,8 +1,7 @@
 ﻿namespace Jaberah.Models.JaberahModels
 {
-    public class MidFinal
+    public class MidFinal : BaseEntity
     {
-        public int Id { get; set; }
         public int StudentId { get; set; }
         public DateTime FromDate { get; set; }
         public DateTime ToDate { get; set; }

@@ -1,5 +1,8 @@
 ﻿using Jaberah.Models.JaberahModels;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
+using System.Globalization;
+using System.Linq.Expressions;
 using Version = Jaberah.Models.JaberahModels.Version;
 
 namespace Jaberah.Models.MyDbContext
@@ -28,7 +31,14 @@ namespace Jaberah.Models.MyDbContext
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
+                {
+                    modelBuilder.Entity(entityType.ClrType)
+                        .HasQueryFilter(ConvertFilterExpression<BaseEntity>(e => e.DeletedAt == null, entityType.ClrType));
+                }
+            }
             // Exam
             modelBuilder.Entity<Exam>(entity =>
             {
@@ -205,8 +215,85 @@ namespace Jaberah.Models.MyDbContext
                       .OnDelete(DeleteBehavior.Cascade);
             });
         }
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            // Get the current Hijri DateTime
+            var currentDateTimeHijri = GetHijriDateTime();
+
+            // Iterate over the entries in the ChangeTracker
+            foreach (var entry in ChangeTracker.Entries())
+            {
+                // Check if the entry is of type BaseEntity or a derived class
+                if (entry.Entity is BaseEntity baseEntity)
+                {
+                    // Handle newly added entities (Added state)
+                    if (entry.State == EntityState.Added)
+                    {
+                        baseEntity.CreatedAt = currentDateTimeHijri;
+                        baseEntity.UpdatedAt = currentDateTimeHijri;
+                    }
+                    // Handle modified entities (Modified state)
+                    else if (entry.State == EntityState.Modified)
+                    {
+                        baseEntity.UpdatedAt = currentDateTimeHijri;
+                    }
+                }
+            }
+
+            return await base.SaveChangesAsync(cancellationToken);
+        }
 
 
+
+
+        // Helper method to get the current Hijri DateTime
+        // Helper method to get the current Hijri DateTime
+        public static DateTime GetHijriDateTime()
+        {
+            HijriCalendar hijriCalendar = new HijriCalendar();
+
+            DateTime currentDateTime = DateTime.UtcNow.AddHours(3);
+            int hijriYear = hijriCalendar.GetYear(currentDateTime);
+            int hijriMonth = hijriCalendar.GetMonth(currentDateTime);
+            int hijriDay = hijriCalendar.GetDayOfMonth(currentDateTime);
+
+            DateTime hijriDateTime = new(hijriYear, hijriMonth, hijriDay,
+                currentDateTime.Hour, currentDateTime.Minute, currentDateTime.Second, currentDateTime.Millisecond);
+
+            return hijriDateTime;
+        }
+
+
+        // Soft delete method
+        public void SoftDelete<TEntity>(TEntity entity) where TEntity : BaseEntity
+        {
+            var entry = Entry(entity);
+            if (entry.State == EntityState.Detached)
+            {
+                Set<TEntity>().Attach(entity);
+            }
+
+            // Mark the entity as deleted by setting DeletedAt to current Hijri date
+            entity.DeletedAt = GetHijriDateTime();
+
+            // Mark the entity as modified (so the DeletedAt is saved)
+            entry.State = EntityState.Modified;
+        }
+
+        // Restore soft-deleted entity by setting DeletedAt to null
+        public void RestoreEntity<TEntity>(TEntity entity) where TEntity : BaseEntity
+        {
+            var entry = Entry(entity);
+            entity.DeletedAt = null;
+            entry.State = EntityState.Modified;
+        }
+
+        private static LambdaExpression ConvertFilterExpression<T>(Expression<Func<T, bool>> filter, Type entityType)
+        {
+            var parameter = Expression.Parameter(entityType);
+            var body = ReplacingExpressionVisitor.Replace(filter.Parameters.Single(), parameter, filter.Body);
+            return Expression.Lambda(body, parameter);
+        }
     }
 
 }

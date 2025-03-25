@@ -1,8 +1,7 @@
 ﻿namespace Jaberah.Models.JaberahModels
 {
-    public class TeachersSalaries
+    public class TeachersSalaries : BaseEntity
     {
-        public int Id { get; set; }
         public DateTime Date { get; set; }
         public ICollection<TeachersSalariesRow> TeachersSalariesRows { get; set; }
     }

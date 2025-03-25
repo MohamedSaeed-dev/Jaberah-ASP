@@ -64,30 +64,6 @@ namespace Jaberah.Controllers
                 lastVersion.MinRequiredVersion = $"{versionParts[0]}.{versionParts[1]}.0";
             }
 
-
-            if (lastVersion.LatestVersion != version)
-            {
-                var messageBuilder = new Message()
-                {
-                    Data = new Dictionary<string, string>
-                    {
-                        { "topic", "newVersion" },
-                        { "version", version },
-                        { "url", url },
-                        { "minRequired",lastVersion.MinRequiredVersion }
-                    },
-                    Topic = "newVersion"
-                };
-                try
-                {
-                    string response = await FirebaseMessaging.DefaultInstance.SendAsync(messageBuilder);
-                }
-                catch
-                {
-                    return StatusCode(500, new { message = "حدث خطأ في ارسال الاشعار" });
-                }
-            }
-
             lastVersion.LatestVersion = version;
             lastVersion.URL = url.Contains("dl=0") ? url.Replace("dl=0", "dl=1") : lastVersion.URL;
             await _db.SaveChangesAsync();

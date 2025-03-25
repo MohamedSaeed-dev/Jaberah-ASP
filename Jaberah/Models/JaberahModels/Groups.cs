@@ -1,8 +1,7 @@
 ﻿namespace Jaberah.Models.JaberahModels
 {
-    public class Group
+    public class Group : BaseEntity
     {
-        public int Id { get; set; }
         public string GroupName { get; set; } = string.Empty;
         public Period Period { get; set; }
         public int? TeacherId { get; set; }
