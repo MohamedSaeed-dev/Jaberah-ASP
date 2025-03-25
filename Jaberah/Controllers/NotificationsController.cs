@@ -91,10 +91,6 @@ namespace Jaberah.Controllers
                 return StatusCode(500, new { message = "حدث خطأ في ارسال الاشعار للمعلم" });
             }
             
-            var notification = _mapper.Map<Models.JaberahModels.Notification>(message);
-            notification.CreatedAt = GetCurrentHijriDateTime();
-            await _db.Notifications.AddAsync(notification);
-            await _db.SaveChangesAsync();
             return Ok(new { message = "تم ارسال الاشعار بنجاح" });
         }
 
