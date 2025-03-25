@@ -75,6 +75,10 @@ namespace Jaberah.Controllers
                     Title = message.Title,
                     Body = message.Body,
                 },
+                Data = new Dictionary<string, string>
+                {
+                    { "topic", "token" },
+                },
                 Token = teacher.FCMToken
             };
 
