@@ -138,8 +138,8 @@ namespace Jaberah.Controllers
                 {
                     if (attendanceRowsDictionary.TryGetValue(dto.TeacherId, out var attendanceRow))
                     {
-                        attendanceRow.IsExcuse = dto.IsExcuse ?? attendanceRow.IsExcuse;
-                        attendanceRow.Signature = dto.Signature ?? attendanceRow.Signature;
+                        attendanceRow.IsExcuse = dto.IsExcuse;
+                        attendanceRow.Signature = dto.Signature;
                     }
                     else
                     {
