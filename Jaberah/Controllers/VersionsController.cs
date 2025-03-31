@@ -12,9 +12,10 @@ namespace Jaberah.Controllers
 {
     [Route("api/versions")]
     [ApiController]
-    public class VersionsController(JaberahDBContext db) : ControllerBase
+    public class VersionsController(JaberahDBContext db, DropboxService dropboxService) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
+        private readonly DropboxService _dropboxService = dropboxService;
         [AllowAnonymous]
         [HttpGet]
         public async Task<IActionResult> GetLastVersion([FromQuery] string version)
@@ -38,37 +39,41 @@ namespace Jaberah.Controllers
         }
         [AllowAnonymous]
         [HttpPut]
-        public async Task<IActionResult> UpdateVersion([FromQuery] string version, [FromForm] string url)
+        [RequestSizeLimit(100_000_000)] 
+        public async Task<IActionResult> UpdateVersion([FromQuery] string version, IFormFile apkFile)
         {
-            if (string.IsNullOrWhiteSpace(version) || string.IsNullOrWhiteSpace(url)) return BadRequest(new {message = "invalid data"}); 
+            if (string.IsNullOrWhiteSpace(version) || apkFile == null || apkFile.Length == 0)
+                return BadRequest(new { message = "Invalid data" });
+
             var lastVersion = await _db.Versions.FirstOrDefaultAsync();
-            if (lastVersion == null) return NotFound(new { message = "version not found" });
+            if (lastVersion == null) return NotFound(new { message = "Version not found" });
 
-
-            var versionParts = version.Split('.').Select(int.Parse).ToList();
-            var requiredParts = lastVersion.MinRequiredVersion.Split('.').Select(int.Parse).ToList();
-
-            while (versionParts.Count < 3) versionParts.Add(0);
-            while (requiredParts.Count < 3) requiredParts.Add(0);
-
-            if (versionParts[0] > requiredParts[0] || versionParts[0] < requiredParts[0])  // Major version increased
+            // Read the file as byte array
+            byte[] fileBytes;
+            using (var memoryStream = new MemoryStream())
             {
-                lastVersion.MinRequiredVersion = version;
-            }
-            else if (versionParts[1] > requiredParts[1] || versionParts[1] < requiredParts[1])  // Minor version increased
-            {
-                lastVersion.MinRequiredVersion = version;
-            }
-            else if (versionParts[2] > requiredParts[2] || versionParts[2] < requiredParts[2])  // Patch version increased
-            {
-                lastVersion.MinRequiredVersion = $"{versionParts[0]}.{versionParts[1]}.0";
+                await apkFile.CopyToAsync(memoryStream);
+                fileBytes = memoryStream.ToArray();
             }
 
+            // Refresh Dropbox Access Token
+            var accessToken = await _dropboxService.RefreshAccessTokenAsync();
+
+            // Upload APK to Dropbox
+            var filePath = $"/jaberah-{version}.apk";
+            await _dropboxService.UploadFileAsync(accessToken, filePath, fileBytes);
+
+            // Get Sharable Link from Dropbox
+            var sharableLink = await _dropboxService.GetSharableLinkAsync(accessToken, filePath);
+
+            // Update version info in database
             lastVersion.LatestVersion = version;
-            lastVersion.URL = url.Contains("dl=0") ? url.Replace("dl=0", "dl=1") : lastVersion.URL;
+            lastVersion.URL = sharableLink.Replace("dl=0", "dl=1"); // Convert link for direct download
             await _db.SaveChangesAsync();
+
             return Ok(lastVersion);
         }
+
         [NonAction]
         private int CompareVersions(string currentVersion, string requiredVersion)
         {

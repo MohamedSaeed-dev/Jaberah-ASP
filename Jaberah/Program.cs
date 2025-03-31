@@ -23,7 +23,8 @@ builder.Services.AddDbContext<JaberahDBContext>(x => x.UseSqlServer(builder.Conf
 builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddScoped<VerifyTokenAttribute>();
 builder.Services.AddScoped<TokenHelper>();
-
+builder.Services.AddScoped<DropboxService>();
+builder.Services.AddScoped<HttpClient>();
 builder.Services.AddMemoryCache();
 builder.Services.AddAuthentication(options =>
 {
