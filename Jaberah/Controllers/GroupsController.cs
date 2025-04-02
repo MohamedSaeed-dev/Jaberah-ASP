@@ -233,7 +233,54 @@ namespace Jaberah.Controllers
 
             return Ok(new { message = "تم حذف الحلقة بنجاح" });
         }
+        [HttpGet("deleted")]
+        public async Task<IActionResult> GetDeletedGroups()
+        {
+            var cacheKey = $"{CacheKey}_DeletedGroups";
 
+            if (!_cache.TryGetValue(cacheKey, out var groups))
+            {
+                var query = _db.Groups.AsNoTracking().IgnoreQueryFilters().Where(x => x.DeletedAt != null).AsQueryable();
+
+                groups = (await query.Select(x => new
+                {
+                    x.Id,
+                    x.GroupName,
+                    x.Period,
+                    x.Teacher.TeacherName,
+                }).ToListAsync())
+                .Select(x => new
+                {
+                    Id = x.Id,
+                    GroupName = x.GroupName,
+                    Period = GetPeriodName((byte)x.Period),
+                    TeacherName = x.TeacherName,
+                }).ToList();
+
+                _cache.Set(cacheKey, groups, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(7),
+                    SlidingExpiration = TimeSpan.FromHours(12)
+                });
+            }
+
+            return Ok(groups);
+        }
+        
+        [HttpPatch("{groupId}/restore")]
+        public async Task<IActionResult> RestoreGroup([FromRoute] int groupId)
+        {
+            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
+            var group = await _db.Groups.IgnoreQueryFilters().FindAsync(groupId);
+            if (group == null)
+                return NotFound(new { message = "لاتوجد حلقة" });
+
+            _db.RestoreEntity(group);
+            await _db.SaveChangesAsync();
+            return Ok(new { message = "تم استرجاع الحلقة بنجاح" });
+
+        }
         // Helper method to invalidate cache
         private void InvalidateCache()
         {
@@ -241,6 +288,7 @@ namespace Jaberah.Controllers
             _cache.Remove($"{CacheKey}_WithoutTeacher");
             _cache.Remove("GroupsForGeneralUse");
             _cache.Remove("GroupsWithNoTeacher");
+            _cache.Remove($"{CacheKey}_DeletedGroups");
         }
 
         [NonAction]
