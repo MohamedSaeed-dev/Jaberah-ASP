@@ -297,7 +297,7 @@ namespace Jaberah.Controllers
         {
             if (teacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
 
-            var teacher = await _db.Students.IgnoreQueryFilters().FirstOrDefaultAsync(g => g.Id == teacherId);
+            var teacher = await _db.Teachers.IgnoreQueryFilters().FirstOrDefaultAsync(g => g.Id == teacherId);
             if (teacher == null)
                 return NotFound(new { message = "لايوجد معلم" });
 
