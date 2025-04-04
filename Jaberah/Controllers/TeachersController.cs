@@ -3,6 +3,7 @@ using Jaberah.Helpers;
 using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
 using Jaberah.Models.ViewModels.Groups;
+using Jaberah.Models.ViewModels.Students;
 using Jaberah.Models.ViewModels.Teachers;
 using Jaberah.Validations.Teachers;
 using Microsoft.AspNetCore.Mvc;
@@ -164,9 +165,7 @@ namespace Jaberah.Controllers
 
             await _db.Teachers.AddAsync(newTeacher);
             await _db.SaveChangesAsync();
-            _cache.Remove("GroupsCache");
-            _cache.Remove("GroupsCache_WithoutTeacher");
-            _cache.Remove("TeachersForGeneralUse");
+            InvalidateCache();
             return StatusCode(201, new { message = "تم اضافة المعلم بنجاح" });
         }
         [UpdateTeacher]
@@ -225,12 +224,10 @@ namespace Jaberah.Controllers
 
             }
 
-                teacher.Groups = newGroups;
+            teacher.Groups = newGroups;
             _db.Teachers.Update(teacher);
             await _db.SaveChangesAsync();
-            _cache.Remove("GroupsCache");
-            _cache.Remove("GroupsCache_WithoutTeacher");
-            _cache.Remove("TeachersForGeneralUse");
+            InvalidateCache();
             return Ok(new { message = "تم تحديث بيانات المعلم بنجاح" });
 
         }
@@ -245,13 +242,79 @@ namespace Jaberah.Controllers
             {
                 return NotFound(new { message = "لايوجد معلم" });
             }
-
+            teacher.Groups = null;
             _db.SoftDelete(teacher);
             await _db.SaveChangesAsync();
+            InvalidateCache();
+            return Ok(new { message = "تم حذف المعلم بنجاح" });
+        }
+
+        [HttpGet("deleted")]
+        public async Task<IActionResult> GetDeletedTeachers()
+        {
+            var cacheKey = $"DeletedTeachers";
+
+            if (!_cache.TryGetValue(cacheKey, out List<GetDeletedTeachersForView> teachers))
+            {
+                var query = _db.Teachers.AsNoTracking().IgnoreQueryFilters().Where(x => x.DeletedAt != null).AsQueryable();
+
+                teachers = (await query.Select(x => new GetDeletedTeachersForView
+                {
+                    Id = x.Id,
+                    TeacherName = x.TeacherName,
+                    PhoneNumber = x.PhoneNumber,
+                }).ToListAsync());
+
+                _cache.Set(cacheKey, teachers, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(7),
+                    SlidingExpiration = TimeSpan.FromHours(12)
+                });
+            }
+
+            return Ok(teachers);
+        }
+
+        [HttpDelete("{teacherId}/ever")]
+        public async Task<IActionResult> DeleteTeacherEver([FromRoute] int teacherId)
+        {
+            if (teacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
+            var teacher = await _db.Teachers.IgnoreQueryFilters().FirstOrDefaultAsync(g => g.Id == teacherId);
+            if (teacher == null)
+                return NotFound(new { message = "لايوجد معلم" });
+
+            _db.Remove(teacher);
+            await _db.SaveChangesAsync();
+
+            _cache.Remove("DeletedTeachers");
+
+            return Ok(new { message = "تم حذف المعلم نهائياً بنجاح" });
+        }
+
+        [HttpPatch("{teacherId}/restore")]
+        public async Task<IActionResult> RestoreTeacher([FromRoute] int teacherId)
+        {
+            if (teacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
+            var teacher = await _db.Students.IgnoreQueryFilters().FirstOrDefaultAsync(g => g.Id == teacherId);
+            if (teacher == null)
+                return NotFound(new { message = "لايوجد معلم" });
+
+            _db.RestoreEntity(teacher);
+            await _db.SaveChangesAsync();
+            InvalidateCache();
+            _cache.Remove("DeletedTeachers");
+            return Ok(new { message = "تم استرجاع المعلم بنجاح" });
+
+        }
+
+        // Helper method to invalidate cache
+        private void InvalidateCache()
+        {
             _cache.Remove("GroupsCache");
             _cache.Remove("GroupsCache_WithoutTeacher");
             _cache.Remove("TeachersForGeneralUse");
-            return Ok(new { message = "تم حذف المعلم بنجاح" });
         }
 
         [NonAction]

@@ -2,6 +2,7 @@
 using Jaberah.Helpers;
 using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
+using Jaberah.Models.ViewModels.Groups;
 using Jaberah.Models.ViewModels.Students;
 using Jaberah.Validations.Students;
 using Microsoft.AspNetCore.Mvc;
@@ -70,8 +71,7 @@ namespace Jaberah.Controllers
             await _db.Students.AddAsync(newStudent);
             await _db.SaveChangesAsync();
 
-            _cache.Remove("GroupsCache");
-            _cache.Remove("GroupsCache_WithoutTeacher");
+            InvalidateCache();
             return StatusCode(201, new { message = "تم اضافة الطالب بنجاح" });
         }
         [UpdateStudent]
@@ -107,8 +107,7 @@ namespace Jaberah.Controllers
             student.GroupId = model.GroupId;
             _db.Students.Update(student);
             await _db.SaveChangesAsync();
-            _cache.Remove("GroupsCache");
-            _cache.Remove("GroupsCache_WithoutTeacher");
+            InvalidateCache();
             return Ok(new { message = "تم تحديث بيانات الطالب بنجاح" });
         }
 
@@ -124,12 +123,79 @@ namespace Jaberah.Controllers
             {
                 return NotFound(new { message = "لايوجد طالب" });
             }
-
+            student.GroupId = null;
             _db.SoftDelete(student);
             await _db.SaveChangesAsync();
-            _cache.Remove("GroupsCache");
-            _cache.Remove("GroupsCache_WithoutTeacher");
+            InvalidateCache();
+            _cache.Remove("DeletedStudents");
             return Ok(new { message = "تم حذف الطالب بنجاح" });
+        }
+
+        [HttpGet("deleted")]
+        public async Task<IActionResult> GetDeletedStudents()
+        {
+            var cacheKey = $"DeletedStudents";
+
+            if (!_cache.TryGetValue(cacheKey, out List<GetDeletedStudentsForView> students))
+            {
+                var query = _db.Students.AsNoTracking().IgnoreQueryFilters().Where(x => x.DeletedAt != null).AsQueryable();
+
+                students = (await query.Select(x => new GetDeletedStudentsForView
+                {
+                    Id = x.Id,
+                    StudentName = x.StudentName,
+                    PhoneNumber = x.PhoneNumber,
+                }).ToListAsync());
+
+                _cache.Set(cacheKey, students, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(7),
+                    SlidingExpiration = TimeSpan.FromHours(12)
+                });
+            }
+
+            return Ok(students);
+        }
+
+        [HttpDelete("{studentId}/ever")]
+        public async Task<IActionResult> DeleteStudentEver([FromRoute] int studentId)
+        {
+            if (studentId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
+            var student = await _db.Students.IgnoreQueryFilters().FirstOrDefaultAsync(g => g.Id == studentId);
+            if (student == null)
+                return NotFound(new { message = "لايوجد طالب" });
+
+            _db.Remove(student);
+            await _db.SaveChangesAsync();
+
+            _cache.Remove("DeletedStudents");
+
+            return Ok(new { message = "تم حذف الطالب نهائياً بنجاح" });
+        }
+
+        [HttpPatch("{studentId}/restore")]
+        public async Task<IActionResult> RestoreStudent([FromRoute] int studentId)
+        {
+            if (studentId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
+            var student = await _db.Students.IgnoreQueryFilters().FirstOrDefaultAsync(g => g.Id == studentId);
+            if (student == null)
+                return NotFound(new { message = "لايوجد طالب" });
+
+            _db.RestoreEntity(student);
+            await _db.SaveChangesAsync();
+            InvalidateCache();
+            _cache.Remove("DeletedStudents");
+            return Ok(new { message = "تم استرجاع الطالب بنجاح" });
+
+        }
+
+        // Helper method to invalidate cache
+        private void InvalidateCache()
+        {
+            _cache.Remove("GroupsCache");
+            _cache.Remove("GroupsCache_WithoutTeacher");   
         }
     }
 }

@@ -225,7 +225,7 @@ namespace Jaberah.Controllers
             var group = await _db.Groups.FindAsync(groupId);
             if (group == null)
                 return NotFound(new { message = "لاتوجد حلقة" });
-
+            group.Students = null;
             _db.SoftDelete(group);
             await _db.SaveChangesAsync();
 
@@ -233,12 +233,13 @@ namespace Jaberah.Controllers
 
             return Ok(new { message = "تم حذف الحلقة بنجاح" });
         }
+
         [HttpGet("deleted")]
         public async Task<IActionResult> GetDeletedGroups()
         {
             var cacheKey = $"{CacheKey}_DeletedGroups";
 
-            if (!_cache.TryGetValue(cacheKey, out var groups))
+            if (!_cache.TryGetValue(cacheKey, out List<GetDeletedGroupsForView> groups))
             {
                 var query = _db.Groups.AsNoTracking().IgnoreQueryFilters().Where(x => x.DeletedAt != null).AsQueryable();
 
@@ -247,14 +248,12 @@ namespace Jaberah.Controllers
                     x.Id,
                     x.GroupName,
                     x.Period,
-                    x.Teacher.TeacherName,
                 }).ToListAsync())
-                .Select(x => new
+                .Select(x => new GetDeletedGroupsForView
                 {
                     Id = x.Id,
                     GroupName = x.GroupName,
                     Period = GetPeriodName((byte)x.Period),
-                    TeacherName = x.TeacherName,
                 }).ToList();
 
                 _cache.Set(cacheKey, groups, new MemoryCacheEntryOptions
@@ -266,18 +265,36 @@ namespace Jaberah.Controllers
 
             return Ok(groups);
         }
-        
+
+        [HttpDelete("{groupId}/ever")]
+        public async Task<IActionResult> DeleteGroupEver([FromRoute] int groupId)
+        {
+            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
+            var group = await _db.Groups.IgnoreQueryFilters().FirstOrDefaultAsync(g => g.Id == groupId);
+            if (group == null)
+                return NotFound(new { message = "لاتوجد حلقة" });
+
+            _db.Remove(group);
+            await _db.SaveChangesAsync();
+
+            _cache.Remove($"{CacheKey}_DeletedGroups");
+
+            return Ok(new { message = "تم حذف الحلقة نهائياً بنجاح" });
+        }
+
         [HttpPatch("{groupId}/restore")]
         public async Task<IActionResult> RestoreGroup([FromRoute] int groupId)
         {
             if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
 
-            var group = await _db.Groups.IgnoreQueryFilters().FindAsync(groupId);
+            var group = await _db.Groups.IgnoreQueryFilters().FirstOrDefaultAsync(g => g.Id == groupId);
             if (group == null)
                 return NotFound(new { message = "لاتوجد حلقة" });
 
             _db.RestoreEntity(group);
             await _db.SaveChangesAsync();
+            InvalidateCache();
             return Ok(new { message = "تم استرجاع الحلقة بنجاح" });
 
         }
