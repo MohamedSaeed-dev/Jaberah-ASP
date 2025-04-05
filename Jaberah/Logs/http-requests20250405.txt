@@ -1,0 +1,8 @@
+2025-04-05 16:37:52.674 +03:00 [INF] HTTP GET /api/versions 
+RequestBody:  
+StatusCode: 200 
+ResponseBody: {"latestVersion":"1.0.12","minRequiredVersion":"1.0.0","isUpdateRequired":false,"isUpdateAvailable":true,"url":"https://www.dropbox.com/scl/fi/hmagu3u3wyhg23ox77wac/jaberah-1.0.12.apk?rlkey=5qoapslpaeaciua8ro4cbw8c3&dl=1"}
+2025-04-05 16:37:52.699 +03:00 [INF] HTTP GET /favicon.ico 
+RequestBody:  
+StatusCode: 401 
+ResponseBody: 
