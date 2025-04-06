@@ -246,6 +246,7 @@ namespace Jaberah.Controllers
             _db.SoftDelete(teacher);
             await _db.SaveChangesAsync();
             InvalidateCache();
+            _cache.Remove("DeletedTeachers");
             return Ok(new { message = "تم حذف المعلم بنجاح" });
         }
 

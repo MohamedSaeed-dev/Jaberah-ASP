@@ -1,7 +1,9 @@
 using Serilog;
 using Serilog.Core;
-using Serilog.Events;
 using Serilog.Formatting.Json;
+using Microsoft.AspNetCore.Http;
+using System.IO;
+using System.Threading.Tasks;
 
 public class RequestResponseLoggingMiddleware
 {
@@ -25,7 +27,7 @@ public class RequestResponseLoggingMiddleware
     {
         context.Request.EnableBuffering();
 
-        string requestBody = "";
+        string requestBody = string.Empty;
         if (context.Request.ContentLength > 0 && context.Request.Body.CanSeek)
         {
             context.Request.Body.Position = 0;
@@ -44,15 +46,19 @@ public class RequestResponseLoggingMiddleware
         var responseText = await new StreamReader(context.Response.Body).ReadToEndAsync();
         context.Response.Body.Seek(0, SeekOrigin.Begin);
 
-        _requestLogger.Information("{@HttpLog}", new
+        int statusCode = context.Response.StatusCode;
+        if (statusCode < 200 || statusCode >= 300)
         {
-            timestamp = DateTime.UtcNow,
-            method = context.Request.Method,
-            url = context.Request.Path.Value,
-            body = requestBody,
-            statusCode = context.Response.StatusCode,
-            response = responseText
-        });
+            _requestLogger.Information("{@HttpLog}", new
+            {
+                timestamp = DateTime.UtcNow,
+                method = context.Request.Method,
+                url = context.Request.Path.Value,
+                body = requestBody,
+                statusCode = statusCode,
+                response = responseText
+            });
+        }
 
         await responseBody.CopyToAsync(originalBodyStream);
     }
