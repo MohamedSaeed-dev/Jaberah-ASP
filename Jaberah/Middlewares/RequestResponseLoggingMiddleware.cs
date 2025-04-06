@@ -1,6 +1,7 @@
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
+using Serilog.Formatting.Json;
 
 public class RequestResponseLoggingMiddleware
 {
@@ -11,10 +12,12 @@ public class RequestResponseLoggingMiddleware
     {
         _next = next;
 
-        // Configure a local logger ONLY for request logs
+        // Logger that writes logs in JSON format to a file
         _requestLogger = new LoggerConfiguration()
             .MinimumLevel.Information()
-            .WriteTo.File("Logs/http-requests.txt", rollingInterval: RollingInterval.Day)
+            .WriteTo.File(new JsonFormatter(),
+                          "Logs/http-requests.json",
+                          shared: true)
             .CreateLogger();
     }
 
@@ -22,18 +25,16 @@ public class RequestResponseLoggingMiddleware
     {
         context.Request.EnableBuffering();
 
-        var request = context.Request;
         string requestBody = "";
-
-        if (request.ContentLength > 0 && request.Body.CanSeek)
+        if (context.Request.ContentLength > 0 && context.Request.Body.CanSeek)
         {
-            request.Body.Position = 0;
-            using var reader = new StreamReader(request.Body, leaveOpen: true);
+            context.Request.Body.Position = 0;
+            using var reader = new StreamReader(context.Request.Body, leaveOpen: true);
             requestBody = await reader.ReadToEndAsync();
-            request.Body.Position = 0;
+            context.Request.Body.Position = 0;
         }
 
-        var originalBody = context.Response.Body;
+        var originalBodyStream = context.Response.Body;
         using var responseBody = new MemoryStream();
         context.Response.Body = responseBody;
 
@@ -43,15 +44,16 @@ public class RequestResponseLoggingMiddleware
         var responseText = await new StreamReader(context.Response.Body).ReadToEndAsync();
         context.Response.Body.Seek(0, SeekOrigin.Begin);
 
-        _requestLogger.Information(
-            "HTTP {Method} {Url} \nRequestBody: {RequestBody} \nStatusCode: {StatusCode} \nResponseBody: {ResponseBody}",
-            request.Method,
-            request.Path,
-            requestBody,
-            context.Response.StatusCode,
-            responseText
-        );
+        _requestLogger.Information("{@HttpLog}", new
+        {
+            timestamp = DateTime.UtcNow,
+            method = context.Request.Method,
+            url = context.Request.Path.Value,
+            body = requestBody,
+            statusCode = context.Response.StatusCode,
+            response = responseText
+        });
 
-        await responseBody.CopyToAsync(originalBody);
+        await responseBody.CopyToAsync(originalBodyStream);
     }
 }
