@@ -23,6 +23,7 @@ Migrations/
 
 # Logs
 *.log
+Logs/
 
 # Visual Studio specific
 .vscode/

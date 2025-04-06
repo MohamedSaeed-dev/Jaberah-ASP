@@ -1,27 +1,27 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using System.IO;
 using System.Text.Json;
 
-namespace Jaberah.Controllers
+[ApiController]
+[Route("api/[controller]")]
+public class LogsController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class LogsController : ControllerBase
+    private const string LogFilePath = "Logs/http-requests.json";
+
+    [HttpGet]
+    public IActionResult GetLogs()
     {
-        private const string LogFilePath = "Logs/http-requests.json";
-        [HttpGet]
-        public async Task<IActionResult> GetLogs()
+        if (!System.IO.File.Exists(LogFilePath))
+            return NotFound("Log file not found.");
+
+        var logs = new List<object>();
+
+        // Open the file with shared read access
+        using (var fileStream = new FileStream(LogFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+        using (var streamReader = new StreamReader(fileStream))
         {
-            if (!System.IO.File.Exists(LogFilePath))
-                return NotFound("Log file not found.");
-
-            var logLines = System.IO.File.ReadAllLines(LogFilePath);
-            var logs = new List<object>();
-
-            foreach (var line in logLines)
+            string line;
+            while ((line = streamReader.ReadLine()) != null)
             {
                 try
                 {
@@ -33,8 +33,8 @@ namespace Jaberah.Controllers
                     // Skip invalid JSON lines
                 }
             }
-
-            return Ok(logs);
         }
+
+        return Ok(logs);
     }
 }
