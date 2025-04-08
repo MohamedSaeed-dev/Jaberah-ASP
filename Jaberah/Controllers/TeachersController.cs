@@ -228,6 +228,7 @@ namespace Jaberah.Controllers
             _db.Teachers.Update(teacher);
             await _db.SaveChangesAsync();
             InvalidateCache();
+            _cache.Remove("GroupsWithNoTeacher");
             return Ok(new { message = "تم تحديث بيانات المعلم بنجاح" });
 
         }
