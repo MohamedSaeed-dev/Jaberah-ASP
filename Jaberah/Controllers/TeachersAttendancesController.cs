@@ -174,6 +174,72 @@ namespace Jaberah.Controllers
         }
 
 
+        [HttpGet("{teacherId}/for-day")]
+        public async Task<IActionResult> GetTeacherAttendanceForDay([FromRoute] int teacherId, [FromQuery] DateTime date)
+        {
+            if (date == default)
+                return BadRequest(new { message = "يرجى إدخال تاريخ صحيح (سنة وشهر ويوم)" });
+
+            if (teacherId <= 0)
+                return BadRequest(new { message = "يرجى إدخال معرف معلم صحيح" });
+
+            var teacherExists = await _db.Teachers.AnyAsync(x => x.Id == teacherId);
+            if (!teacherExists)
+                return NotFound(new { message = "المعلم غير موجود" });
+
+            var attendance = await _db.TeacherAttendances
+                .Where(a => a.Date.Date == date.Date)
+                .SelectMany(a => a.TeachersAttendancesRows
+                    .Where(row => row.TeacherId == teacherId)
+                    .Select(row => new
+                    {
+                        row.IsExcuse,
+                        row.Signature,
+                        a.Date
+                    }))
+                .FirstOrDefaultAsync();
+
+            if (attendance == null)
+                return NoContent();
+
+            return Ok(attendance);
+        }
+
+        [HttpGet("{teacherId}/for-month")]
+        public async Task<IActionResult> GetTeacherAttendanceForMonth([FromRoute] int teacherId, [FromQuery] DateTime date)
+        {
+            if (date == default)
+                return BadRequest(new { message = "يرجى إدخال تاريخ صحيح (سنة وشهر)" });
+
+            if (teacherId <= 0)
+                return BadRequest(new { message = "يرجى إدخال معرف معلم صحيح" });
+
+            var teacherExists = await _db.Teachers.AnyAsync(x => x.Id == teacherId);
+            if (!teacherExists)
+                return NotFound(new { message = "المعلم غير موجود" });
+
+            HijriCalendar hijriCalendar = new HijriCalendar();
+            DateTime fromDate = new DateTime(date.Year, date.Month, 1);
+            var daysInMonth = hijriCalendar.GetDaysInMonth(date.Year, date.Month);
+            DateTime toDate = fromDate.AddDays(daysInMonth);
+
+            var attendance = await _db.TeacherAttendances
+                .Where(a => a.Date >= fromDate && a.Date <= toDate)
+                .SelectMany(a => a.TeachersAttendancesRows
+                    .Where(row => row.TeacherId == teacherId)
+                    .Select(row => new
+                    {
+                        row.IsExcuse,
+                        row.Signature,
+                        a.Date
+                    }))
+                .ToListAsync();
+
+            if (attendance == null)
+                return NoContent();
+
+            return Ok(attendance);
+        }
 
 
         //[HttpGet("for-day")]
