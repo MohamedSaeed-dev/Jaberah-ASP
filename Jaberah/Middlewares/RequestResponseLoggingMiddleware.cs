@@ -2,6 +2,7 @@ using Serilog;
 using Serilog.Core;
 using Serilog.Formatting.Json;
 using Microsoft.AspNetCore.Http;
+using System;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -14,12 +15,12 @@ public class RequestResponseLoggingMiddleware
     {
         _next = next;
 
-        // Logger that writes logs in JSON format to a file
         _requestLogger = new LoggerConfiguration()
             .MinimumLevel.Information()
-            .WriteTo.File(new JsonFormatter(),
-                          "Logs/http-requests.json",
-                          shared: true)
+            .WriteTo.File(
+                formatter: new JsonFormatter(),
+                path: "Logs/error-requests.log",
+                shared: true)
             .CreateLogger();
     }
 
@@ -43,11 +44,10 @@ public class RequestResponseLoggingMiddleware
         await _next(context);
 
         context.Response.Body.Seek(0, SeekOrigin.Begin);
-        var responseText = await new StreamReader(context.Response.Body).ReadToEndAsync();
+        string responseText = await new StreamReader(context.Response.Body).ReadToEndAsync();
         context.Response.Body.Seek(0, SeekOrigin.Begin);
 
-        int statusCode = context.Response.StatusCode;
-        if (statusCode < 200 || statusCode >= 300)
+        if (context.Response.StatusCode < 200 || context.Response.StatusCode >= 300)
         {
             _requestLogger.Information("{@HttpLog}", new
             {
@@ -55,7 +55,7 @@ public class RequestResponseLoggingMiddleware
                 method = context.Request.Method,
                 url = context.Request.Path.Value,
                 body = requestBody,
-                statusCode = statusCode,
+                statusCode = context.Response.StatusCode,
                 response = responseText
             });
         }
