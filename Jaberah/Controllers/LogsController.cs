@@ -52,7 +52,8 @@ public class LogsController : ControllerBase
             return NotFound("Log file not found.");
         }
 
-        System.IO.File.Delete(LogFilePath);
+        System.IO.File.WriteAllText(LogFilePath, string.Empty);
+
         return NoContent();
     }
 }
