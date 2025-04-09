@@ -3,22 +3,17 @@ using System.Text.Json.Serialization;
 
 public class LogEntry
 {
-    [JsonPropertyName("timestamp")]
     public DateTime Timestamp { get; set; }
 
-    [JsonPropertyName("level")]
     public string Level { get; set; }
 
-    [JsonPropertyName("messageTemplate")]
     public string MessageTemplate { get; set; }
 
-    [JsonPropertyName("properties")]
     public Properties Properties { get; set; }
 }
 
 public class Properties
 {
-    [JsonPropertyName("httpLog")]
     public HttpLog HttpLog { get; set; }
 }
 
