@@ -33,16 +33,32 @@ public class LogsController : ControllerBase
                     }
                 }
                 catch (JsonException)
-                { }
+                {
+                    // You may log this if needed
+                }
             }
         }
 
         logs = logs.OrderByDescending(log => log.Timestamp).ToList();
 
+        var totalCount = logs.Count;
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
         var pagedLogs = logs.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
 
-        return Ok(pagedLogs);
+        var metadata = new
+        {
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            HasNextPage = pageNumber < totalPages,
+            HasPreviousPage = pageNumber > 1,
+            Data = pagedLogs
+        };
+
+        return Ok(metadata);
     }
+
 
     [HttpDelete]
     public IActionResult DeleteLogs()
