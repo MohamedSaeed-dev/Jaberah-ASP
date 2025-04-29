@@ -50,45 +50,62 @@ namespace Jaberah.Controllers
                 PhoneNumber = teacher.PhoneNumber,
                 Role = teacher.Role,
             };
-
-            return Ok(new { user = userData, accessToken, refreshToken });
+            Response.Cookies.Append("refreshToken", refreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Path = "/auth/refresh",
+                Expires = DateTime.UtcNow.AddDays(30)
+            });
+            return Ok(new { user = userData, accessToken });
         }
 
         [AllowAnonymous]
         [HttpPost("refresh")]
-        public async Task<IActionResult> Refresh([FromBody] RefreshDTO refreshDTO)
+        public async Task<IActionResult> Refresh()
         {
-            if(string.IsNullOrWhiteSpace(refreshDTO.RefreshToken))
+            var refreshToken = Request.Cookies["refreshToken"];
+            if (string.IsNullOrWhiteSpace(refreshToken))
             {
-                return BadRequest(new { message = "البيانات خاطئة" });
+                return Unauthorized();
             }
-            var user = await _token.VerifyToken(refreshDTO.RefreshToken);
-            if(user == default)
+            var user = await _token.VerifyToken(refreshToken);
+            if (user == default)
             {
                 return Forbid();
             }
-
-            return Ok(new { accessToken = _token.GenerateToken(user.Id.ToString(), 7) });
+            var newAccessToken = _token.GenerateToken(user.Id.ToString(), 7);
+            var newRefreshToken = _token.GenerateToken(user.Id.ToString(), 30);
+            Response.Cookies.Append("refreshToken", newRefreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Path = "/auth/refresh",
+                Expires = DateTime.UtcNow.AddDays(30)
+            });
+            return Ok(new { accessToken = newAccessToken });
         }
 
         [HttpPatch("update-fcm-token")]
         public async Task<IActionResult> UpdateFCMToken([FromBody] UpdateFCMTokenDTO model)
         {
-            if(model == default || model.UserId <= 0 || string.IsNullOrWhiteSpace( model.Token))
+            if (model == default || model.UserId <= 0 || string.IsNullOrWhiteSpace(model.Token))
             {
                 return BadRequest(new { message = "البيانات خاطئة" });
             }
             var teacher = await _db.Teachers.FirstOrDefaultAsync(x => x.Id == model.UserId);
             if (teacher == null)
             {
-                return BadRequest(new {message = "لايوجد معلم"});
+                return BadRequest(new { message = "لايوجد معلم" });
             }
 
             teacher.FCMToken = model.Token;
 
             await _db.SaveChangesAsync();
 
-            return Ok(new {message = "تم التحديث بنجاح"});
+            return Ok(new { message = "تم التحديث بنجاح" });
 
         }
 
