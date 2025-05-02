@@ -110,6 +110,8 @@ app.UseRouting();
 app.UseCors(
     x => x.AllowAnyHeader().AllowAnyOrigin().AllowAnyMethod()
     );
+app.UseCookiePolicy();
+
 app.UseHttpsRedirection();
 
 app.UseAuthentication();

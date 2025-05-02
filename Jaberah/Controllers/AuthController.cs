@@ -55,7 +55,7 @@ namespace Jaberah.Controllers
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.Strict,
-                Path = "/auth/refresh",
+                Path = "/auth/",
                 Expires = DateTime.UtcNow.AddDays(30)
             });
             return Ok(new { user = userData, accessToken });
@@ -82,7 +82,7 @@ namespace Jaberah.Controllers
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.Strict,
-                Path = "/auth/refresh",
+                Path = "/auth/",
                 Expires = DateTime.UtcNow.AddDays(30)
             });
             return Ok(new { accessToken = newAccessToken });
