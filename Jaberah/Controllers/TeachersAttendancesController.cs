@@ -195,7 +195,8 @@ namespace Jaberah.Controllers
                     {
                         row.IsExcuse,
                         row.Signature,
-                        a.Date
+                        row.CreatedAt,
+                        a.Date,
                     }))
                 .FirstOrDefaultAsync();
 
@@ -231,7 +232,8 @@ namespace Jaberah.Controllers
                     {
                         row.IsExcuse,
                         row.Signature,
-                        a.Date
+                        row.CreatedAt,
+                        a.Date,
                     }))
                 .ToListAsync();
 
