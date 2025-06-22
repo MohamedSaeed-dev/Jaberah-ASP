@@ -23,6 +23,8 @@ namespace Jaberah.Helpers
                 .ReverseMap();
 
             CreateMap<Notification, NotificationsDTO>().ReverseMap();
+
+            CreateMap<Book, UpsertBookDTO>().ReverseMap();
         }
     }
 }

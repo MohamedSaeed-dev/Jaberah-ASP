@@ -298,6 +298,33 @@ namespace Jaberah.Controllers
             return Ok(new { message = "تم استرجاع الحلقة بنجاح" });
 
         }
+
+        [HttpPost("{groupId}/books")]
+        public async Task<IActionResult> UpsertBook([FromRoute] int groupId, [FromBody] UpsertBookDTO upsertBookDTO)
+        {
+            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
+            var group = await _db.Groups.FirstOrDefaultAsync(g => g.Id == groupId);
+            if (group == null)
+                return NotFound(new { message = "لاتوجد حلقة" });
+
+            var book = await _db.Books.FirstOrDefaultAsync(b => b.Group.Id == groupId && b.Month == upsertBookDTO.Month);
+            if (book == null)
+            {
+                var newBook = _mapper.Map<Book>(upsertBookDTO);
+                newBook.Group = group;
+                await _db.Books.AddAsync(newBook);
+                await _db.SaveChangesAsync();
+                return Ok(new { message = "تم انشاء كتاب بنجاح" });
+            }
+            else
+            {
+                _mapper.Map(upsertBookDTO, book);
+                await _db.SaveChangesAsync();
+                return Ok(new { message = "تم تحديث بيانات الكتاب بنجاح" });
+            }
+        }
+
         // Helper method to invalidate cache
         private void InvalidateCache()
         {

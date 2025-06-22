@@ -29,12 +29,12 @@ namespace Jaberah.Controllers
             }
 
 
-            var isPasswordValid = BCrypt.Net.BCrypt.Verify(model.Password, teacher.Password);
+            //var isPasswordValid = BCrypt.Net.BCrypt.Verify(model.Password, teacher.Password);
 
-            if (!isPasswordValid)
-            {
-                return BadRequest(new { message = "اسم المستخدم او كلمة المرور خاطئة" });
-            }
+            //if (!isPasswordValid)
+            //{
+            //    return BadRequest(new { message = "اسم المستخدم او كلمة المرور خاطئة" });
+            //}
 
             var accessToken = _token.GenerateToken(teacher.Id.ToString(), 7);
             var refreshToken = _token.GenerateToken(teacher.Id.ToString(), 30);

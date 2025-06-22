@@ -102,7 +102,7 @@ namespace Jaberah.Controllers
             student.PhoneNumber = !string.IsNullOrWhiteSpace(model.PhoneNumber) ? model.PhoneNumber : student.PhoneNumber;
             student.SchoolClass = !string.IsNullOrWhiteSpace(model.SchoolClass) ? model.SchoolClass : student.SchoolClass;
             student.SchoolLevel = !string.IsNullOrWhiteSpace(model.SchoolLevel) ? model.SchoolLevel : student.SchoolLevel;
-            student.MemoRate = !string.IsNullOrWhiteSpace(model.MemoRate) ? model.MemoRate : student.MemoRate;
+            student.MemoRate = model.MemoRate > 0 ? model.MemoRate : student.MemoRate;
             student.Notes = model.Notes is not null ? model.Notes : student.Notes;
             student.GroupId = model.GroupId;
             _db.Students.Update(student);

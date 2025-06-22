@@ -96,6 +96,16 @@ namespace Jaberah.Controllers
                 {
                     x.Id,
                     x.Student.StudentName,
+                    Books = x.Student.Group.Books
+                                                .Where(b => b.Month >= fromDate && b.Month <= toDate)
+                                                .Select(b => new
+                                                {
+                                                    b.Title,
+                                                    b.Month,
+                                                    b.From,
+                                                    b.To
+                                                })
+                                                .ToList(),
                     Save = x.FollowStudentsRows
                         .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
                         .OrderBy(y => y.WithTeacher.From.Verse) // Added ordering

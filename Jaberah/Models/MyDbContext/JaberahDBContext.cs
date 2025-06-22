@@ -29,6 +29,8 @@ namespace Jaberah.Models.MyDbContext
         public DbSet<MidFinal> MidFinals { get; set; }
         public DbSet<Version> Versions { get; set; }
 
+        public DbSet<Book> Books { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
@@ -39,6 +41,19 @@ namespace Jaberah.Models.MyDbContext
                         .HasQueryFilter(ConvertFilterExpression<BaseEntity>(e => e.DeletedAt == null, entityType.ClrType));
                 }
             }
+
+            modelBuilder.Entity<Book>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(e => e.Group)
+                      .WithMany(e => e.Books)
+                      .HasForeignKey(e => e.GroupId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.GroupId, e.Month });
+            });
+
             // Exam
             modelBuilder.Entity<Exam>(entity =>
             {
