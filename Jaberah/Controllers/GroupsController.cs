@@ -300,30 +300,49 @@ namespace Jaberah.Controllers
         }
 
         [HttpPost("{groupId}/books")]
-        public async Task<IActionResult> UpsertBook([FromRoute] int groupId, [FromBody] UpsertBookDTO upsertBookDTO)
+        public async Task<IActionResult> CreateBook([FromRoute] int groupId, [FromBody] UpsertBookDTO dto)
         {
             if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
 
-            var group = await _db.Groups.FirstOrDefaultAsync(g => g.Id == groupId);
-            if (group == null)
-                return NotFound(new { message = "لاتوجد حلقة" });
+            var group = await _db.Groups.FindAsync(groupId);
+            if (group == null) return NotFound(new { message = "لاتوجد حلقة" });
 
-            var book = await _db.Books.FirstOrDefaultAsync(b => b.Group.Id == groupId && b.Month == upsertBookDTO.Month);
-            if (book == null)
-            {
-                var newBook = _mapper.Map<Book>(upsertBookDTO);
-                newBook.Group = group;
-                await _db.Books.AddAsync(newBook);
-                await _db.SaveChangesAsync();
-                return Ok(new { message = "تم انشاء كتاب بنجاح" });
-            }
-            else
-            {
-                _mapper.Map(upsertBookDTO, book);
-                await _db.SaveChangesAsync();
-                return Ok(new { message = "تم تحديث بيانات الكتاب بنجاح" });
-            }
+            var book = _mapper.Map<Book>(dto);
+            book.Group = group;
+
+            await _db.Books.AddAsync(book);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "تم إنشاء الكتاب بنجاح" });
         }
+
+        [HttpPut("books/{bookId}")]
+        public async Task<IActionResult> UpdateBook([FromRoute] int bookId, [FromBody] UpsertBookDTO dto)
+        {
+            var book = await _db.Books.Include(b => b.Group).FirstOrDefaultAsync(b => b.Id == bookId);
+            if (book == null)
+                return NotFound(new { message = "الكتاب غير موجود" });
+
+            _mapper.Map(dto, book);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "تم تحديث بيانات الكتاب" });
+        }
+
+        [HttpDelete("books/{bookId}")]
+        public async Task<IActionResult> DeleteBook([FromRoute] int bookId)
+        {
+            var book = await _db.Books.FindAsync(bookId);
+            if (book == null)
+                return NotFound(new { message = "الكتاب غير موجود" });
+
+            _db.Books.Remove(book);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "تم حذف الكتاب" });
+        }
+
+
 
         // Helper method to invalidate cache
         private void InvalidateCache()

@@ -38,7 +38,7 @@ namespace Jaberah.Controllers
                 Notes = x.Notes
             }).AsQueryable();
 
-            var pagedStudents = (await selectedQuery.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
+            var pagedStudents = (await selectedQuery.Skip((pageNumber - 1) * pageSize).Take(pageSize).OrderByDescending(s => s.MemoRate).ToListAsync())
                             .ToPagedList(await selectedQuery.CountAsync(), pageNumber, pageSize);
 
             return Ok(pagedStudents);
