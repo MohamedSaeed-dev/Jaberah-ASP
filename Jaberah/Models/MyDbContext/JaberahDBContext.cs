@@ -262,18 +262,22 @@ namespace Jaberah.Models.MyDbContext
 
 
         // Helper method to get the current Hijri DateTime
-        // Helper method to get the current Hijri DateTime
         public static DateTime GetHijriDateTime()
         {
             HijriCalendar hijriCalendar = new HijriCalendar();
 
             DateTime currentDateTime = DateTime.UtcNow.AddHours(3);
-            int hijriYear = hijriCalendar.GetYear(currentDateTime);
-            int hijriMonth = hijriCalendar.GetMonth(currentDateTime);
-            int hijriDay = hijriCalendar.GetDayOfMonth(currentDateTime);
 
-            DateTime hijriDateTime = new(hijriYear, hijriMonth, hijriDay,
-                currentDateTime.Hour, currentDateTime.Minute, currentDateTime.Second, currentDateTime.Millisecond);
+            // Build the date using Hijri calendar properly
+            DateTime hijriDateTime = hijriCalendar.ToDateTime(
+                hijriCalendar.GetYear(currentDateTime),
+                hijriCalendar.GetMonth(currentDateTime),
+                hijriCalendar.GetDayOfMonth(currentDateTime),
+                currentDateTime.Hour,
+                currentDateTime.Minute,
+                currentDateTime.Second,
+                currentDateTime.Millisecond
+            );
 
             return hijriDateTime;
         }
