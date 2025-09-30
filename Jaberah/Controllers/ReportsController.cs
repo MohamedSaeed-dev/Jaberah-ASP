@@ -113,7 +113,7 @@ namespace Jaberah.Controllers
                     x.Id,
                     x.Student.StudentName,
                     Save = x.FollowStudentsRows
-                        .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
+                        .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && !string.IsNullOrWhiteSpace(y.WithTeacher.From.SurahName) && y.WithTeacher.To != null && !string.IsNullOrWhiteSpace(y.WithTeacher.To.SurahName))
                         .OrderBy(y => y.WithTeacher.From.Verse)
                         .Select(y => new
                         {
@@ -125,7 +125,7 @@ namespace Jaberah.Controllers
                             y.WithTeacher.Rate
                         }),
                     Review = x.FollowStudentsRows
-                        .Where(y => y.WithFriend != null && y.WithFriend.From != null && y.WithFriend.To != null)
+                    .Where(y => y.WithFriend != null && y.WithFriend.From != null && !string.IsNullOrWhiteSpace(y.WithFriend.From.SurahName) && y.WithFriend.To != null && !string.IsNullOrWhiteSpace(y.WithFriend.To.SurahName))
                         .OrderBy(y => y.WithFriend.From.Verse)
                         .Select(y => new
                         {
