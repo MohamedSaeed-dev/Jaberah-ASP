@@ -90,17 +90,17 @@ namespace Jaberah.Controllers
             var daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
             DateTime toDate = fromDate.AddDays(daysInMonth);
 
-            // 1. Get group books only once
+            // 1. Get group books
             var groupBooks = await _db.Books
                 .AsNoTracking()
                 .Where(b => b.GroupId == groupId && b.Month >= fromDate && b.Month <= toDate)
                 .Select(b => new BooksData
                 {
                     Id = b.Id,
-                    Title = b.Title,
+                    Title = b.Title ?? string.Empty,
                     Month = b.Month,
-                    From = b.From,
-                    To = b.To
+                    From = b.From ?? string.Empty,
+                    To = b.To ?? string.Empty
                 })
                 .ToListAsync();
 
@@ -111,92 +111,92 @@ namespace Jaberah.Controllers
                 .Select(x => new
                 {
                     x.Id,
-                    x.Student.StudentName,
+                    StudentName = x.Student.StudentName ?? string.Empty,
                     Save = x.FollowStudentsRows
                         .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && !string.IsNullOrWhiteSpace(y.WithTeacher.From.SurahName) && y.WithTeacher.To != null && !string.IsNullOrWhiteSpace(y.WithTeacher.To.SurahName))
                         .OrderBy(y => y.WithTeacher.From.Verse)
                         .Select(y => new
                         {
-                            FromSurah = y.WithTeacher.From.SurahName,
+                            FromSurah = y.WithTeacher.From.SurahName ?? string.Empty,
                             FromVerse = y.WithTeacher.From.Verse,
-                            ToSurah = y.WithTeacher.To.SurahName,
+                            ToSurah = y.WithTeacher.To.SurahName ?? string.Empty,
                             ToVerse = y.WithTeacher.To.Verse,
-                            y.WithTeacher.Pages,
-                            y.WithTeacher.Rate
+                            Pages = y.WithTeacher.Pages,
+                            Rate = y.WithTeacher.Rate ?? string.Empty
                         }),
                     Review = x.FollowStudentsRows
-                    .Where(y => y.WithFriend != null && y.WithFriend.From != null && !string.IsNullOrWhiteSpace(y.WithFriend.From.SurahName) && y.WithFriend.To != null && !string.IsNullOrWhiteSpace(y.WithFriend.To.SurahName))
+                        .Where(y => y.WithFriend != null && y.WithFriend.From != null && !string.IsNullOrWhiteSpace(y.WithFriend.From.SurahName) && y.WithFriend.To != null && !string.IsNullOrWhiteSpace(y.WithFriend.To.SurahName))
                         .OrderBy(y => y.WithFriend.From.Verse)
                         .Select(y => new
                         {
-                            FromSurah = y.WithFriend.From.SurahName,
+                            FromSurah = y.WithFriend.From.SurahName ?? string.Empty,
                             FromVerse = y.WithFriend.From.Verse,
-                            ToSurah = y.WithFriend.To.SurahName,
+                            ToSurah = y.WithFriend.To.SurahName ?? string.Empty,
                             ToVerse = y.WithFriend.To.Verse,
-                            y.WithFriend.Pages,
-                            y.WithFriend.Rate
+                            Pages = y.WithFriend.Pages,
+                            Rate = y.WithFriend.Rate ?? string.Empty
                         }),
                     SaveGrade = Math.Min(x.FollowStudentsRows.Count * 0.5, 10.0),
                     ReviewGrade = Math.Min(x.FollowStudentsRows.Count * 0.5, 10.0),
                     Attendance = Math.Min(x.FollowStudentsRows.Sum(y => y.Attendance), 25),
                     Behavior = Math.Min(x.FollowStudentsRows.Sum(y => y.Behavior), 25),
-                    OralExam = x.Exams != null ? x.Exams.OralExam : 0,
-                    PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
+                    OralExam = x.Exams != null ? x.Exams.OralExam : 0f,
+                    PaperExam = x.Exams != null ? x.Exams.PaperExam : 0f,
+
                 })
                 .ToListAsync();
 
-            // 3. Map and attach the same groupBooks to all students
+            // 3. Map DTO
             var report = new GetMonthlyReportForView
             {
                 Books = groupBooks,
                 Data = students.Select(x => new GetMonthlyReportData
                 {
                     FollowStudentId = x.Id,
-                    StudentName = x.StudentName,
+                    StudentName = x.StudentName ?? string.Empty,
                     SaveData = new SaveReviewData
                     {
                         From = new FromToData
                         {
-                            SurahName = x.Save.FirstOrDefault()?.FromSurah,
+                            SurahName = x.Save.FirstOrDefault()?.FromSurah ?? string.Empty,
                             Verse = x.Save.FirstOrDefault()?.FromVerse ?? 0,
                         },
                         To = new FromToData
                         {
-                            SurahName = x.Save.LastOrDefault()?.ToSurah,
+                            SurahName = x.Save.LastOrDefault()?.ToSurah ?? string.Empty,
                             Verse = x.Save.LastOrDefault()?.ToVerse ?? 0,
                         },
                         Pages = x.Save.Sum(y => y.Pages),
-                        Rate = ""
+                        Rate = string.Empty
                     },
                     ReviewData = new SaveReviewData
                     {
                         From = new FromToData
                         {
-                            SurahName = x.Review.FirstOrDefault()?.FromSurah,
+                            SurahName = x.Review.FirstOrDefault()?.FromSurah ?? string.Empty,
                             Verse = x.Review.FirstOrDefault()?.FromVerse ?? 0,
                         },
                         To = new FromToData
                         {
-                            SurahName = x.Review.LastOrDefault()?.ToSurah,
+                            SurahName = x.Review.LastOrDefault()?.ToSurah ?? string.Empty,
                             Verse = x.Review.LastOrDefault()?.ToVerse ?? 0,
                         },
                         Pages = x.Review.Sum(y => y.Pages),
-                        Rate = ""
+                        Rate = string.Empty
                     },
-                    SaveGrade = x.SaveGrade,
-                    ReviewGrade = x.ReviewGrade,
-                    AttendanceGrade = x.Attendance,
-                    BehaviorGrade = x.Behavior,
+                    SaveGrade = Math.Round( x.SaveGrade,2),
+                    ReviewGrade = Math.Round( x.ReviewGrade,2),
+                    AttendanceGrade = Math.Round( x.Attendance,2),
+                    BehaviorGrade = Math.Round( x.Behavior,2),
                     OralGrade = x.OralExam,
                     PaperGrade = x.PaperExam,
-                    Total = ((x.SaveGrade + x.ReviewGrade + x.Attendance + x.Behavior + x.OralExam + x.PaperExam) * 100) / 100
+                    Total = Math.Round(((x.SaveGrade + x.ReviewGrade + x.Attendance + x.Behavior + x.OralExam + x.PaperExam) * 100) / 100, 2),
                 })
-            .OrderByDescending(x => x.Total)
-            .ToList()
+                .OrderByDescending(x => x.Total)
+                .ToList()
             };
 
             return Ok(report);
-
         }
 
 
@@ -253,13 +253,13 @@ namespace Jaberah.Controllers
             {
                 StudentName = x.StudentName,
                 GroupName = x.GroupName,
-                SaveGrade = x.SaveGrade,
-                ReviewGrade = x.ReviewGrade,
-                AttendanceGrade = x.Attendance,
-                BehaviorGrade = x.Behavior,
+                SaveGrade = Math.Round( x.SaveGrade,2),
+                ReviewGrade = Math.Round( x.ReviewGrade,2),
+                AttendanceGrade = Math.Round( x.Attendance,2),
+                BehaviorGrade = Math.Round( x.Behavior,2 ),
                 OralGrade = x.OralExam,
                 PaperGrade = x.PaperExam,
-                Total = ((x.SaveGrade + x.ReviewGrade + x.Attendance + x.Behavior + x.OralExam + x.PaperExam) * 100) / 100
+                Total = Math.Round(((x.SaveGrade + x.ReviewGrade + x.Attendance + x.Behavior + x.OralExam + x.PaperExam) * 100) / 100, 2)
 
             }).OrderByDescending(x => x.Total).ToList();
             return Ok(result);
@@ -320,13 +320,13 @@ namespace Jaberah.Controllers
             {
                 StudentName = x.StudentName,
                 GroupName = null,
-                SaveGrade = x.SaveGrade,
-                ReviewGrade = x.ReviewGrade,
-                AttendanceGrade = x.Attendance,
-                BehaviorGrade = x.Behavior,
+                SaveGrade = Math.Round( x.SaveGrade,2 ),
+                ReviewGrade = Math.Round( x.ReviewGrade,2),
+                AttendanceGrade = Math.Round( x.Attendance,2),
+                BehaviorGrade = Math.Round( x.Behavior,2),
                 OralGrade = x.OralExam,
                 PaperGrade = x.PaperExam,
-                Total = ((x.SaveGrade + x.ReviewGrade + x.Attendance + x.Behavior + x.OralExam + x.PaperExam) * 100) / 100
+                Total = Math.Round( ((x.SaveGrade + x.ReviewGrade + x.Attendance + x.Behavior + x.OralExam + x.PaperExam) * 100) / 100,2)
 
             }).OrderByDescending(x => x.Total).ToList();
             return Ok(result);
