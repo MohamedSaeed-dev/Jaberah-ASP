@@ -155,14 +155,11 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> GetFollowStudentsForGroupForDay([FromRoute] int groupId, [FromQuery] DateTime date, [FromQuery] string searchText = "")
         {
             if (date == default)
-            {
                 return BadRequest(new { message = "ادخل تاريخ صحيح" });
-            }
-            if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+            if (groupId <= 0)
+                return BadRequest(new { message = "ادخل id صحيح" });
             if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
-            {
                 return BadRequest(new { message = "لاتوجد حلقة" });
-            }
 
             var followStudents = await _db.Students.AsNoTracking()
                 .Where(student => student.GroupId == groupId && student.StudentName.Contains(searchText))
@@ -170,69 +167,64 @@ namespace Jaberah.Controllers
                 {
                     student.Id,
                     student.StudentName,
-                    FollowDetails = _db.FollowStudents.AsNoTracking()
-                        .Where(f => f.StudentId == student.Id && date.Year == f.Date.Year && date.Month == f.Date.Month)
-                        .SelectMany(f => f.FollowStudentsRows.Where(x => x.Day == date.Day).Select(row => new GetFollowStudentForDay
-                        {
-                            StudentId = student.Id,
-                            StudentName = student.StudentName,
-                            Attendance = row.Attendance,
-                            Behavior = row.Behavior,
+                    FollowDetail = _db.FollowStudents.AsNoTracking()
+                        .Where(f => f.StudentId == student.Id
+                                    && f.Date.Year == date.Year
+                                    && f.Date.Month == date.Month)
+                        .SelectMany(f => f.FollowStudentsRows
+                            .Where(row => row.Day == date.Day)
+                            .Select(row => new GetFollowStudentForDay
+                            {
+                                StudentId = student.Id,
+                                StudentName = student.StudentName,
+                                Attendance = row.Attendance,
+                                Behavior = row.Behavior,
 
-                            SurahFromTeacher = row.WithTeacher.From.SurahName ?? "",
-                            SurahToTeacher = row.WithTeacher.To.SurahName ?? "",
-                            VerseFromTeacher = row.WithTeacher.From.Verse,
-                            VerseToTeacher = row.WithTeacher.To.Verse,
-                            PagesTeacher = row.WithTeacher.Pages,
-                            RateTeacher = row.WithTeacher.Rate ?? "",
+                                SurahFromTeacher = row.WithTeacher.From.SurahName ?? "",
+                                SurahToTeacher = row.WithTeacher.To.SurahName ?? "",
+                                VerseFromTeacher = row.WithTeacher.From.Verse,
+                                VerseToTeacher = row.WithTeacher.To.Verse,
+                                PagesTeacher = row.WithTeacher.Pages,
+                                RateTeacher = row.WithTeacher.Rate ?? "",
 
-                            SurahFromFriend = row.WithFriend.From.SurahName ?? "",
-                            SurahToFriend = row.WithFriend.To.SurahName ?? "",
-                            VerseFromFriend = row.WithFriend.From.Verse,
-                            VerseToFriend = row.WithFriend.To.Verse,
-                            PagesFriend = row.WithFriend.Pages,
-                            RateFriend = row.WithFriend.Rate ?? "",
-                            Notes = row.Notes ?? ""
-                        })).ToList()
-                }).ToListAsync();
+                                SurahFromFriend = row.WithFriend.From.SurahName ?? "",
+                                SurahToFriend = row.WithFriend.To.SurahName ?? "",
+                                VerseFromFriend = row.WithFriend.From.Verse,
+                                VerseToFriend = row.WithFriend.To.Verse,
+                                PagesFriend = row.WithFriend.Pages,
+                                RateFriend = row.WithFriend.Rate ?? "",
+                                Notes = row.Notes ?? ""
+                            }))
+                        .OrderBy(x => x.StudentId)  // optional: deterministic first row
+                        .FirstOrDefault()
+                })
+                .ToListAsync();
 
-            var result = followStudents.SelectMany(student =>
+            var result = followStudents.Select(student => student.FollowDetail ?? new GetFollowStudentForDay
             {
-                if (student.FollowDetails.Any())
-                {
-                    return student.FollowDetails;
-                }
+                StudentId = student.Id,
+                StudentName = student.StudentName,
+                Attendance = 0,
+                Behavior = 0,
 
-                return new List<GetFollowStudentForDay>
-                {
-                    new GetFollowStudentForDay
-                    {
-                        StudentId = student.Id,
-                        StudentName = student.StudentName,
-                        Attendance = 0,
-                        Behavior = 0,
+                SurahFromTeacher = "",
+                SurahToTeacher = "",
+                VerseFromTeacher = 1,
+                VerseToTeacher = 1,
+                PagesTeacher = 0,
+                RateTeacher = "",
 
-                        SurahFromTeacher = "",
-                        SurahToTeacher = "",
-                        VerseFromTeacher = 1,
-                        VerseToTeacher = 1,
-                        PagesTeacher = 0,
-                        RateTeacher = "",
-
-                        SurahFromFriend = "",
-                        SurahToFriend = "",
-                        VerseFromFriend = 1,
-                        VerseToFriend = 1,
-                        PagesFriend = 0,
-                        RateFriend = "",
-                        Notes = ""
-                    }
-                };
+                SurahFromFriend = "",
+                SurahToFriend = "",
+                VerseFromFriend = 1,
+                VerseToFriend = 1,
+                PagesFriend = 0,
+                RateFriend = "",
+                Notes = ""
             }).ToList();
 
             return Ok(result);
         }
-
 
         [HttpPost]
         public async Task<IActionResult> UpsertFollowStudent([FromQuery] DateTime date, [FromBody] UpsertFollowStudentsDTO model)
