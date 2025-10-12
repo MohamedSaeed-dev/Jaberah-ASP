@@ -204,132 +204,110 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> GetBestStudentsReport([FromQuery] int year, [FromQuery] int month, [FromQuery] int take = 5)
         {
             if (year <= 0 || month <= 0)
-            {
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
-            }
 
-            HijriCalendar hijriCalendar = new HijriCalendar();
+            HijriCalendar hijri = new HijriCalendar();
             DateTime fromDate = new DateTime(year, month, 1);
-            var daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
-            DateTime toDate = fromDate.AddDays(daysInMonth);
+            int daysInMonth = hijri.GetDaysInMonth(year, month);
+            DateTime toDate = fromDate.AddDays(daysInMonth - 1);
 
-            var grouped = await _db.FollowStudents.AsNoTracking()
+            // Get all FollowStudents rows for the month
+            var followRows = await _db.FollowStudents
+                .AsNoTracking()
                 .Where(x => x.Date >= fromDate && x.Date <= toDate)
                 .Select(x => new
                 {
+                    StudentId = x.StudentId,
                     x.Student.StudentName,
-                    x.Student.Group.GroupName,
-                    Save = x.FollowStudentsRows
-                    .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
-                    .Select(y => new
-                    {
-                        FromSurah = y.WithTeacher.From.SurahName,
-                        FromVerse = y.WithTeacher.From.Verse,
-                        ToSurah = y.WithTeacher.To.SurahName,
-                        ToVerse = y.WithTeacher.To.Verse,
-                        y.WithTeacher.Pages,
-                        y.WithTeacher.Rate
-                    }),
-                    Review = x.FollowStudentsRows
-                    .Where(y => y.WithFriend != null && y.WithFriend.From != null && y.WithFriend.To != null)
-                    .Select(y => new
-                    {
-                        FromSurah = y.WithFriend.From.SurahName,
-                        FromVerse = y.WithFriend.From.Verse,
-                        ToSurah = y.WithFriend.To.SurahName,
-                        ToVerse = y.WithFriend.To.Verse,
-                        y.WithFriend.Pages,
-                        y.WithFriend.Rate
-                    }),
-                    SaveGrade = Math.Min(x.FollowStudentsRows.Count * 0.5, 10.0),
-                    ReviewGrade = Math.Min(x.FollowStudentsRows.Count * 0.5, 10.0),
-                    Attendance = Math.Min( x.FollowStudentsRows.Sum(y => y.Attendance), 25),
-                    Behavior = Math.Min( x.FollowStudentsRows.Sum(y => y.Behavior), 25),
-                    OralExam = x.Exams != null ? x.Exams.OralExam : 0,
-                    PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
-                }).Take(take).ToListAsync();
+                    GroupName = x.Student.Group.GroupName,
+                    x.FollowStudentsRows,
+                    Oral = x.Exams != null ? x.Exams.OralExam : 0,
+                    Paper = x.Exams != null ? x.Exams.PaperExam : 0
+                }).ToListAsync();
 
-            var result = grouped.Select(x => new GetBestStudentsReportForView
+            // Aggregate per student
+            var grouped = followRows.GroupBy(x => x.StudentId).Select(g =>
             {
-                StudentName = x.StudentName,
-                GroupName = x.GroupName,
-                SaveGrade = Math.Round( x.SaveGrade,2),
-                ReviewGrade = Math.Round( x.ReviewGrade,2),
-                AttendanceGrade = Math.Round( x.Attendance,2),
-                BehaviorGrade = Math.Round( x.Behavior,2 ),
-                OralGrade = x.OralExam,
-                PaperGrade = x.PaperExam,
-                Total = Math.Round(((x.SaveGrade + x.ReviewGrade + x.Attendance + x.Behavior + x.OralExam + x.PaperExam) * 100) / 100, 2)
+                var allRows = g.SelectMany(x => x.FollowStudentsRows).ToList();
+                var saveGrade = Math.Min(allRows.Count * 0.5, 10.0);
+                var reviewGrade = Math.Min(allRows.Count * 0.5, 10.0);
+                var attendance = Math.Min(allRows.Sum(r => r.Attendance), 25);
+                var behavior = Math.Min(allRows.Sum(r => r.Behavior), 25);
+                var oral = g.Sum(x => x.Oral);
+                var paper = g.Sum(x => x.Paper);
 
-            }).OrderByDescending(x => x.Total).ToList();
-            return Ok(result);
+                return new GetBestStudentsReportForView
+                {
+                    StudentName = g.First().StudentName,
+                    GroupName = g.First().GroupName,
+                    SaveGrade = Math.Round(saveGrade, 2),
+                    ReviewGrade = Math.Round(reviewGrade, 2),
+                    AttendanceGrade = Math.Round(attendance, 2),
+                    BehaviorGrade = Math.Round(behavior, 2),
+                    OralGrade = oral,
+                    PaperGrade = paper,
+                    Total = Math.Round(saveGrade + reviewGrade + attendance + behavior + oral + paper, 2)
+                };
+            })
+            .OrderByDescending(x => x.Total)
+            .Take(take)
+            .ToList();
+
+            return Ok(grouped);
         }
         [HttpGet("best-students-for-group-report")]
         public async Task<IActionResult> GetBestStudentsForGroupReport([FromQuery] int groupId, [FromQuery] int year, [FromQuery] int month, [FromQuery] int take = 5)
         {
             if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
-            if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
-                return BadRequest(new { message = "لاتوجد حلقة" });
+            if (!await _db.Groups.AnyAsync(x => x.Id == groupId)) return BadRequest(new { message = "لاتوجد حلقة" });
+            if (year <= 0 || month <= 0) return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
 
-            if (year <= 0 || month <= 0)
-            {
-                return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
-            }
-
-            HijriCalendar hijriCalendar = new HijriCalendar();
+            HijriCalendar hijri = new HijriCalendar();
             DateTime fromDate = new DateTime(year, month, 1);
-            var daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
-            DateTime toDate = fromDate.AddDays(daysInMonth);
+            int daysInMonth = hijri.GetDaysInMonth(year, month);
+            DateTime toDate = fromDate.AddDays(daysInMonth - 1);
 
-            var grouped = await _db.FollowStudents.AsNoTracking()
+            // Get all FollowStudents rows for the group in the month
+            var followRows = await _db.FollowStudents
+                .AsNoTracking()
                 .Where(x => x.Student.GroupId == groupId && x.Date >= fromDate && x.Date <= toDate)
                 .Select(x => new
                 {
+                    x.StudentId,
                     x.Student.StudentName,
-                    Save = x.FollowStudentsRows
-                    .Where(y => y.WithTeacher != null && y.WithTeacher.From != null && y.WithTeacher.To != null)
-                    .Select(y => new
-                    {
-                        FromSurah = y.WithTeacher.From.SurahName,
-                        FromVerse = y.WithTeacher.From.Verse,
-                        ToSurah = y.WithTeacher.To.SurahName,
-                        ToVerse = y.WithTeacher.To.Verse,
-                        y.WithTeacher.Pages,
-                        y.WithTeacher.Rate
-                    }),
-                    Review = x.FollowStudentsRows
-                    .Where(y => y.WithFriend != null && y.WithFriend.From != null && y.WithFriend.To != null)
-                    .Select(y => new
-                    {
-                        FromSurah = y.WithFriend.From.SurahName,
-                        FromVerse = y.WithFriend.From.Verse,
-                        ToSurah = y.WithFriend.To.SurahName,
-                        ToVerse = y.WithFriend.To.Verse,
-                        y.WithFriend.Pages,
-                        y.WithFriend.Rate
-                    }),
-                    SaveGrade = Math.Min(x.FollowStudentsRows.Count * 0.5, 10.0),
-                    ReviewGrade = Math.Min(x.FollowStudentsRows.Count * 0.5, 10.0),
-                    Attendance = Math.Min( x.FollowStudentsRows.Sum(y => y.Attendance),25),
-                    Behavior = Math.Min( x.FollowStudentsRows.Sum(y => y.Behavior), 25),
-                    OralExam = x.Exams != null ? x.Exams.OralExam : 0,
-                    PaperExam = x.Exams != null ? x.Exams.PaperExam : 0,
-                }).Take(take).ToListAsync();
+                    x.FollowStudentsRows,
+                    Oral = x.Exams != null ? x.Exams.OralExam : 0,
+                    Paper = x.Exams != null ? x.Exams.PaperExam : 0
+                }).ToListAsync();
 
-            var result = grouped.Select(x => new GetBestStudentsReportForView
+            // Aggregate per student same as GetMonthlyReport
+            var grouped = followRows.GroupBy(x => x.StudentId).Select(g =>
             {
-                StudentName = x.StudentName,
-                GroupName = null,
-                SaveGrade = Math.Round( x.SaveGrade,2 ),
-                ReviewGrade = Math.Round( x.ReviewGrade,2),
-                AttendanceGrade = Math.Round( x.Attendance,2),
-                BehaviorGrade = Math.Round( x.Behavior,2),
-                OralGrade = x.OralExam,
-                PaperGrade = x.PaperExam,
-                Total = Math.Round( ((x.SaveGrade + x.ReviewGrade + x.Attendance + x.Behavior + x.OralExam + x.PaperExam) * 100) / 100,2)
+                var allRows = g.SelectMany(x => x.FollowStudentsRows).ToList();
+                var saveGrade = Math.Min(allRows.Count * 0.5, 10.0);
+                var reviewGrade = Math.Min(allRows.Count * 0.5, 10.0);
+                var attendance = Math.Min(allRows.Sum(r => r.Attendance), 25);
+                var behavior = Math.Min(allRows.Sum(r => r.Behavior), 25);
+                var oral = g.Sum(x => x.Oral);
+                var paper = g.Sum(x => x.Paper);
 
-            }).OrderByDescending(x => x.Total).ToList();
-            return Ok(result);
+                return new GetBestStudentsReportForView
+                {
+                    StudentName = g.First().StudentName,
+                    GroupName = null,
+                    SaveGrade = Math.Round(saveGrade, 2),
+                    ReviewGrade = Math.Round(reviewGrade, 2),
+                    AttendanceGrade = Math.Round(attendance, 2),
+                    BehaviorGrade = Math.Round(behavior, 2),
+                    OralGrade = oral,
+                    PaperGrade = paper,
+                    Total = Math.Round(saveGrade + reviewGrade + attendance + behavior + oral + paper, 2)
+                };
+            }).OrderByDescending(x => x.Total)
+              .Take(take)
+              .ToList();
+
+            return Ok(grouped);
         }
     }
 
