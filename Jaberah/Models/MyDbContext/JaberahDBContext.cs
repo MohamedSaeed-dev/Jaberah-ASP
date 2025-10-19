@@ -27,6 +27,7 @@ namespace Jaberah.Models.MyDbContext
         public DbSet<WithTeacherFriend> WithTeacherFriends { get; set; }
         public DbSet<Surah> Surahs { get; set; }
         public DbSet<MidFinal> MidFinals { get; set; }
+        public DbSet<PartialExam> PartialExams { get; set; }
         public DbSet<Version> Versions { get; set; }
 
         public DbSet<Book> Books { get; set; }
@@ -41,6 +42,41 @@ namespace Jaberah.Models.MyDbContext
                         .HasQueryFilter(ConvertFilterExpression<BaseEntity>(e => e.DeletedAt == null, entityType.ClrType));
                 }
             }
+
+            modelBuilder.Entity<PartialExam>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasIndex(e => new { e.StudentId, e.Date })
+                      .IsUnique()
+                      .HasDatabaseName("UQ_PartialExams_StudentId_ExamDate");
+
+                entity.Property(e => e.Question1).HasColumnType("decimal(3,1)");
+                entity.Property(e => e.Question2).HasColumnType("decimal(3,1)");
+                entity.Property(e => e.Question3).HasColumnType("decimal(3,1)");
+                entity.Property(e => e.Question4).HasColumnType("decimal(3,1)");
+                entity.Property(e => e.Question5).HasColumnType("decimal(3,1)");
+                entity.Property(e => e.Question6).HasColumnType("decimal(3,1)");
+                entity.Property(e => e.Question7).HasColumnType("decimal(3,1)");
+                entity.Property(e => e.Question8).HasColumnType("decimal(3,1)");
+                entity.Property(e => e.Question9).HasColumnType("decimal(3,1)");
+                entity.Property(e => e.Question10).HasColumnType("decimal(3,1)");
+                entity.Property(e => e.Performance).HasColumnType("decimal(3,1)");
+                entity.Property(e => e.TotalScore).HasColumnType("decimal(4,1)");
+
+                entity.Property(e => e.Muhktabir).HasMaxLength(200);
+                entity.Property(e => e.Part).HasMaxLength(200);
+                entity.Property(e => e.Rate).HasMaxLength(200);
+
+                entity.Property(e => e.Notes).HasMaxLength(500);
+
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+
+                entity.HasOne(e => e.Student)
+                      .WithMany()
+                      .HasForeignKey(e => e.StudentId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
 
             modelBuilder.Entity<Book>(entity =>
             {

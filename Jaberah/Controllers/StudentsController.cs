@@ -32,6 +32,7 @@ namespace Jaberah.Controllers
                 PhoneNumber = x.PhoneNumber,
                 SchoolClass = x.SchoolClass,
                 SchoolLevel = x.SchoolLevel,
+                StudyLevel = x.StudyLevel,
                 MemoRate = x.MemoRate,
                 GroupId = x.GroupId,
                 GroupName = x.Group.GroupName,
@@ -100,10 +101,11 @@ namespace Jaberah.Controllers
 
             student.StudentName = !string.IsNullOrWhiteSpace(model.StudentName) ? model.StudentName : student.StudentName;
             student.PhoneNumber = !string.IsNullOrWhiteSpace(model.PhoneNumber) ? model.PhoneNumber : student.PhoneNumber;
-            student.SchoolClass = !string.IsNullOrWhiteSpace(model.SchoolClass) ? model.SchoolClass : student.SchoolClass;
-            student.SchoolLevel = !string.IsNullOrWhiteSpace(model.SchoolLevel) ? model.SchoolLevel : student.SchoolLevel;
+            student.SchoolClass = model.SchoolClass;
+            student.SchoolLevel = model.SchoolLevel;
+            student.StudyLevel =  model.StudyLevel;
             student.MemoRate = model.MemoRate > 0 ? model.MemoRate : student.MemoRate;
-            student.Notes = model.Notes is not null ? model.Notes : student.Notes;
+            student.Notes = model.Notes;
             student.GroupId = model.GroupId;
             _db.Students.Update(student);
             await _db.SaveChangesAsync();

@@ -2,6 +2,7 @@
 using Jaberah.Models.DTOs;
 using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
+using Jaberah.Models.ViewModels.PartialExams;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -55,10 +56,9 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "ادخل تاريخ صحيح" });
             }
 
-            if ((toDate.Month - fromDate.Month + 12 * (toDate.Year - fromDate.Year)) != 4)
-            {
+            int monthsDifference = (toDate.Year - fromDate.Year) * 12 + toDate.Month - fromDate.Month + 1;
+            if (monthsDifference != 4)
                 return BadRequest(new { message = "الفارق يجب ان يكون 4 اشهر" });
-            }
 
             var final = await _db.MidFinals.FirstOrDefaultAsync(x => x.StudentId == studentId && x.FromDate == fromDate && x.ToDate == toDate);
             if (final is null)
@@ -79,6 +79,161 @@ namespace Jaberah.Controllers
             await _db.SaveChangesAsync();
             return Ok(new { message = "تم الحفظ بنجاح" });
         }
+
+        [HttpPost("partial-exam")]
+        public async Task<IActionResult> AddPartialExam([FromBody] CreatePartialExamDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new { message = "البيانات غير صحيحة", errors = ModelState });
+            }
+            var Date = DateTime.Parse(dto.ExamDate);
+
+            var existingExam = await _db.PartialExams
+                .FirstOrDefaultAsync(e => e.StudentId == dto.StudentId && e.Date.Date == Date.Date);
+
+            if (existingExam != null)
+            {
+                return BadRequest(new { message = "يوجد اختبار جزئي لهذا الطالب في نفس التاريخ" });
+            }
+
+            var partialExam = new PartialExam
+            {
+                StudentId = dto.StudentId,
+                Date = Date,
+                Question1 = dto.Question1,
+                Question2 = dto.Question2,
+                Question3 = dto.Question3,
+                Question4 = dto.Question4,
+                Question5 = dto.Question5,
+                Question6 = dto.Question6,
+                Question7 = dto.Question7,
+                Question8 = dto.Question8,
+                Question9 = dto.Question9,
+                Question10 = dto.Question10,
+                Performance = dto.Performance,
+                Muhktabir = dto.Muhktabir,
+                Part = dto.Part,
+                Rate = dto.Rate,
+                Notes = dto.Notes,
+                TotalScore = dto.TotalScore,
+                CreatedAt = DateTime.Now
+            };
+
+            _db.PartialExams.Add(partialExam);
+            await _db.SaveChangesAsync();
+
+            return Ok(partialExam);
+        }
+
+        [HttpPut("partial-exam")]
+        public async Task<IActionResult> UpdatePartialExam([FromBody] UpdatePartialExamDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new { message = "البيانات غير صحيحة", errors = ModelState });
+            }
+            Console.WriteLine(dto.Rate);
+            var partialExam = await _db.PartialExams.FindAsync(dto.Id);
+
+            if (partialExam == null)
+            {
+                return NotFound(new { message = "الاختبار الجزئي غير موجود" });
+            }
+
+            partialExam.Question1 = dto.Question1;
+            partialExam.Question2 = dto.Question2;
+            partialExam.Question3 = dto.Question3;
+            partialExam.Question4 = dto.Question4;
+            partialExam.Question5 = dto.Question5;
+            partialExam.Question6 = dto.Question6;
+            partialExam.Question7 = dto.Question7;
+            partialExam.Question8 = dto.Question8;
+            partialExam.Question9 = dto.Question9;
+            partialExam.Question10 = dto.Question10;
+            partialExam.Performance = dto.Performance;
+            partialExam.Muhktabir = dto.Muhktabir;
+            partialExam.Part = dto.Part;
+            partialExam.Rate = dto.Rate;
+            partialExam.Notes = dto.Notes;
+            partialExam.TotalScore = dto.TotalScore;
+            partialExam.UpdatedAt = DateTime.Now;
+
+            await _db.SaveChangesAsync();
+
+            return Ok(partialExam);
+        }
+
+        [HttpGet("partial-exam/group/{groupId}")]
+        public async Task<IActionResult> GetGroupExamsByDateAsync([FromRoute] int groupId, [FromQuery] string date)
+        {
+            if (!DateTime.TryParse(date, out DateTime examDate))
+            {
+                return BadRequest(new { message = "تنسيق التاريخ غير صحيح" });
+            }
+
+            // Get all students in the group
+            var students = await _db.Students
+                .Where(s => s.GroupId == groupId)
+                .Select(s => new
+                {
+                    s.Id,
+                    s.StudentName
+                })
+                .ToListAsync();
+
+            // Get all exams for these students on the specified date
+            var studentIds = students.Select(s => s.Id).ToList();
+
+            var exams = await _db.PartialExams
+                .Where(e => studentIds.Contains(e.StudentId) && e.Date.Date == examDate.Date)
+                .ToDictionaryAsync(e => e.StudentId, e => e);
+
+            // Merge students with their exams (if any)
+            var result = students
+                .Select(s =>
+                {
+                    exams.TryGetValue(s.Id, out var exam);
+
+                    return new GetStudentsPartialExams
+                    {
+                        StudentId = s.Id,
+                        StudentName = s.StudentName,
+                        ExamId = exam?.Id,
+                        Question1 = exam?.Question1,
+                        Question2 = exam?.Question2,
+                        Question3 = exam?.Question3,
+                        Question4 = exam?.Question4,
+                        Question5 = exam?.Question5,
+                        Question6 = exam?.Question6,
+                        Question7 = exam?.Question7,
+                        Question8 = exam?.Question8,
+                        Question9 = exam?.Question9,
+                        Question10 = exam?.Question10,
+                        Performance = exam?.Performance,
+                        Muhktabir = exam?.Muhktabir,
+                        Rate = exam?.Rate,
+                        Part = exam?.Part,
+                        Notes = exam?.Notes,
+                        TotalScore = exam?.TotalScore
+                    };
+                })
+                .OrderBy(s => s.StudentName)
+                .ToList();
+
+            return Ok(result);
+        }
+
+        [HttpGet("partial-exam/{id}")]
+        public async Task<IActionResult> GetByIdAsync(int id)
+        {
+            var partialExam = await _db.PartialExams
+           .Include(e => e.Student)
+           .FirstOrDefaultAsync(e => e.Id == id);
+            return Ok(partialExam);
+        }
+
+
     }
     public record MidFinalGrade
     {

@@ -114,6 +114,7 @@ namespace Jaberah.Controllers
                     SchoolClass = x.SchoolClass,
                     SchoolLevel = x.SchoolLevel,
                     MemoRate = x.MemoRate,
+                    StudyLevel = x.StudyLevel,
                     Notes = x.Notes
                 });
 
