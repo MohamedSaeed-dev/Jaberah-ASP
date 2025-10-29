@@ -1,6 +1,7 @@
 ﻿using FirebaseAdmin.Messaging;
 using Google.Api.Gax;
 using Jaberah.Models.DTOs;
+using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -21,7 +22,9 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> GetLastVersion([FromQuery] string version)
         {
             var appVersion = await _db.Versions
-            .FirstOrDefaultAsync();
+                .AsNoTracking()
+                .OrderByDescending(v => v.UpdatedAt)
+                .FirstOrDefaultAsync();
 
             if (appVersion == null) return NotFound(new { message = "version not found" });
 
@@ -45,8 +48,13 @@ namespace Jaberah.Controllers
             if (string.IsNullOrWhiteSpace(version) || apkFile == null || apkFile.Length == 0)
                 return BadRequest(new { message = "Invalid data" });
 
-            var lastVersion = await _db.Versions.FirstOrDefaultAsync();
-            if (lastVersion == null) return NotFound(new { message = "Version not found" });
+            var lastVersion = await _db.Versions.OrderByDescending(v => v.UpdatedAt).FirstOrDefaultAsync();
+            lastVersion ??= new Models.JaberahModels.Version
+                {
+                    LatestVersion = version,
+                    MinRequiredVersion = version,
+                    URL = ""
+                };
 
             // Read the file as byte array
             byte[] fileBytes;

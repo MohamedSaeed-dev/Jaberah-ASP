@@ -1,35 +1,23 @@
-﻿using System;
-using System.Net.Http;
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
 
-public class DropboxService
+public class DropboxService(HttpClient httpClient, IConfiguration configuration)
 {
-    private readonly HttpClient _httpClient;
-    private readonly string _dropboxClientId;
-    private readonly string _dropboxClientSecret;
-    private readonly string _dropboxRefreshToken;
-
-    public DropboxService(HttpClient httpClient, IConfiguration configuration)
-    {
-        _httpClient = httpClient;
-        _dropboxClientId = configuration["Dropbox:clientId"];
-        _dropboxClientSecret = configuration["Dropbox:clientSecret"];
-        _dropboxRefreshToken = configuration["Dropbox:refreshToken"];
-    }
+    private readonly HttpClient _httpClient = httpClient;
+    private readonly string _dropboxClientId = configuration["Dropbox:clientId"];
+    private readonly string _dropboxClientSecret = configuration["Dropbox:clientSecret"];
+    private readonly string _dropboxRefreshToken = configuration["Dropbox:refreshToken"];
 
     public async Task<string> RefreshAccessTokenAsync()
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "https://api.dropbox.com/oauth2/token")
         {
-            Content = new FormUrlEncodedContent(new[]
-            {
+            Content = new FormUrlEncodedContent(
+            [
                 new KeyValuePair<string, string>("grant_type", "refresh_token"),
                 new KeyValuePair<string, string>("refresh_token", _dropboxRefreshToken)
-            })
+            ])
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic",
             Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_dropboxClientId}:{_dropboxClientSecret}")));
