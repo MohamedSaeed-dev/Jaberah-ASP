@@ -79,9 +79,8 @@ namespace Jaberah.Controllers
                     double grade = monthlyGrades.Sum();
                     double oral = Math.Min(g.Sum(x => x.Exams?.OralExam ?? 0), 40);
                     double paper = Math.Min(g.Sum(x => x.Exams?.PaperExam ?? 0), 80);
-                    double total = (attendance + behavior + grade + oral + paper) * 100 / 400;
-
                     midFinals.TryGetValue(g.Key, out float midFinalGrade);
+                    double total = (attendance + behavior + grade + oral + paper + midFinalGrade) * 100 / 400;
 
                     return new SemesterReportForView
                     {
