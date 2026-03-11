@@ -3,7 +3,10 @@
     public class GetTeachersAttendancesReportForMonth
     {
         public string TeacherName { get; set; }
-        public int IsExcuseNo { get; set; }
-        public int SignatureNo { get; set; }
+        public string GroupName { get; set; }
+        public int ExcuseNo { get; set; }
+        public int PresentNo { get; set; }
+        public int AbsentNo { get; set; }
+        public int LateNo { get; set; }
     }
 }

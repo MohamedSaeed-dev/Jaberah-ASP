@@ -2,7 +2,6 @@
 using Jaberah.Helpers;
 using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
-using Jaberah.Models.ViewModels.Groups;
 using Jaberah.Models.ViewModels.Students;
 using Jaberah.Validations.Students;
 using Microsoft.AspNetCore.Mvc;
@@ -23,19 +22,19 @@ namespace Jaberah.Controllers
         [HttpGet]
         public async Task<IActionResult> GetStudents([FromQuery] string searchText = "", [FromQuery] bool withoutGroup = false, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var query = _db.Students.AsNoTracking().Where(x => x.StudentName.Contains(searchText)).AsQueryable();
+            var query = _db.Students.AsNoTracking().Where(x => x.Name.Contains(searchText)).AsQueryable();
             if (withoutGroup) query = query.Where(x => !x.GroupId.HasValue).AsQueryable();
             var selectedQuery = query.Select(x => new GetStudentsForView
             {
                 Id = x.Id,
-                StudentName = x.StudentName,
+                StudentName = x.Name,
                 PhoneNumber = x.PhoneNumber,
                 SchoolClass = x.SchoolClass,
                 SchoolLevel = x.SchoolLevel,
                 StudyLevel = x.StudyLevel,
                 MemoRate = x.MemoRate,
                 GroupId = x.GroupId,
-                GroupName = x.Group.GroupName,
+                GroupName = x.Group.Name,
                 Notes = x.Notes
             }).AsQueryable();
 
@@ -48,8 +47,9 @@ namespace Jaberah.Controllers
         [HttpPost]
         public async Task<IActionResult> AddStudent([FromBody] AddStudentDTO model)
         {
+            var studentName = model.StudentName.Trim();
             var existingStudent = await _db.Students
-                .FirstOrDefaultAsync(s => s.StudentName == model.StudentName);
+                .FirstOrDefaultAsync(s => s.Name == studentName);
 
             if (existingStudent != null)
             {
@@ -66,7 +66,7 @@ namespace Jaberah.Controllers
                     return NotFound(new { message = "لاتوجد حلقة بهذا المعرف" });
                 }
             }
-
+            model.StudentName = studentName;
             var newStudent = _mapper.Map<Student>(model);
 
             await _db.Students.AddAsync(newStudent);
@@ -99,7 +99,7 @@ namespace Jaberah.Controllers
                 }
             }
 
-            student.StudentName = !string.IsNullOrWhiteSpace(model.StudentName) ? model.StudentName : student.StudentName;
+            student.Name = !string.IsNullOrWhiteSpace(model.StudentName) ? model.StudentName : student.Name;
             student.PhoneNumber = !string.IsNullOrWhiteSpace(model.PhoneNumber) ? model.PhoneNumber : student.PhoneNumber;
             student.SchoolClass = model.SchoolClass;
             student.SchoolLevel = model.SchoolLevel;
@@ -138,14 +138,14 @@ namespace Jaberah.Controllers
         {
             var cacheKey = $"DeletedStudents";
 
-            if (!_cache.TryGetValue(cacheKey, out List<GetDeletedStudentsForView> students))
+            if (!_cache.TryGetValue(cacheKey, out List<GetDeletedStudentsForView>? students))
             {
                 var query = _db.Students.AsNoTracking().IgnoreQueryFilters().Where(x => x.DeletedAt != null).AsQueryable();
 
                 students = (await query.Select(x => new GetDeletedStudentsForView
                 {
                     Id = x.Id,
-                    StudentName = x.StudentName,
+                    StudentName = x.Name,
                     PhoneNumber = x.PhoneNumber,
                 }).ToListAsync());
 

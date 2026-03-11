@@ -17,7 +17,7 @@
             public decimal? Question9 { get; set; }
             public decimal? Question10 { get; set; }
             public decimal? Performance { get; set; }
-            public string? Muhktabir { get; set; }
+            public string? Tester { get; set; }
             public string? Part { get; set; }
             public string? Rate { get; set; }
             public string? Notes { get; set; }

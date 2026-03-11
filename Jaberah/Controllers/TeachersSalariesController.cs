@@ -6,6 +6,7 @@ using Jaberah.Validations.TeachersSalaries;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
+using System.Security.Claims;
 
 namespace Jaberah.Controllers
 {
@@ -19,133 +20,125 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> GetTeachersSalariesForMonth([FromQuery] int year, [FromQuery] int month)
         {
             if (year <= 0 || month <= 0)
-            {
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
-            }
 
-            HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime date = new DateTime(year, month, 1);
-
-            var salariesQuery = _db.TeacherSalaries.AsNoTracking()
-                .Where(x => x.Date == date)
-                .SelectMany(x => x.TeachersSalariesRows)
-                .Select(x => new
-                {
-                    x.TeacherId,
-                    x.Teacher.TeacherName,
-                    x.Salary,
-                    x.NetSalary,
-                    x.Signature,
-                    DaysAbsence = x.DaysAbsence ?? 0
-                });
-
-            var allTeachersQuery = _db.Teachers.Select(x => new
-            {
-                x.Id,
-                x.TeacherName
-            });
-
-            var missingSalariesQuery = allTeachersQuery
-                .Where(t => !_db.TeacherSalaries
-                    .Where(ts => ts.Date == date)
-                    .SelectMany(ts => ts.TeachersSalariesRows)
-                    .Select(sr => sr.TeacherId)
-                    .Contains(t.Id))
+            // Single query rooted at Teachers — missing salary defaults to 0/false naturally
+            var result = await _db.Teachers
+                .AsNoTracking()
+                .SelectMany(
+                    teacher => teacher.Groups,
+                    (teacher, group) => new { teacher, group }
+                )
+                .OrderBy(t => t.teacher.Name).ThenBy(g => g.group.Name)
                 .Select(t => new
                 {
-                    TeacherId = t.Id,
-                    t.TeacherName,
-                    Salary = 0f,
-                    NetSalary = 0f,
-                    Signature = false,
-                    DaysAbsence = 0
-                });
-
-            var combinedQuery = await salariesQuery
-                .Union(missingSalariesQuery)
-                .OrderBy(x => x.TeacherId)
+                    TeacherId = t.teacher.Id,
+                    TeacherName = t.teacher.Name,
+                    GroupId = t.group.Id,
+                    GroupName = t.group.Name,
+                    SalaryRecord = t.teacher.Salaries!.Where(s => s.GroupId == t.group.Id && s.Year == year && s.Month == month).FirstOrDefault()
+                })
                 .ToListAsync();
-            return Ok(combinedQuery);
+
+            var report = result.Select(t => new
+            {
+                t.TeacherId,
+                t.TeacherName,
+                t.GroupId,
+                t.GroupName,
+                Salary = t.SalaryRecord?.Salary ?? 0,
+                IsPaid = t.SalaryRecord?.IsPaid ?? false,
+                t.SalaryRecord?.PaidAt
+            }).ToList();
+            return Ok(report);
         }
+
         [UpsertTeachersSalaries]
         [HttpPost]
-        public async Task<IActionResult> UpsertTeachersSalariesForMonth([FromQuery] int year, [FromQuery] int month, [FromBody] UpsertTeachersSalariesDTO model)
+        public async Task<IActionResult> UpsertTeachersSalariesForMonth(
+            [FromQuery] int year,
+            [FromQuery] int month,
+            [FromBody] UpsertTeachersSalariesDTO model)
         {
             if (year <= 0 || month <= 0)
-            {
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
-            }
+            if (model.TeacherId <= 0)
+                return BadRequest(new { message = "ادخل id صحيح" });
+            if (!await _db.Teachers.AnyAsync(x => x.Id == model.TeacherId))
+                return BadRequest(new { message = "المعلم غير موجود" });
+            if (!await _db.Groups.AnyAsync(x => x.Id == model.GroupId))
+                return BadRequest(new { message = "الحلقة غير موجودة" });
 
-            if (model.TeacherId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+            var existing = await _db.TeacherSalaries
+                .FirstOrDefaultAsync(s => s.TeacherId == model.TeacherId
+                                       && s.GroupId == model.GroupId
+                                       && s.Year == year
+                                       && s.Month == month);
 
-            HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime date = new DateTime(year, month, 1);
-
-            var teacherAbsenceCount = await _db.TeacherAttendances
-                .Where(a => a.Date.Year == date.Year && a.Date.Month == date.Month)
-                .SelectMany(a => a.TeachersAttendancesRows)
-                .Where(ar => ar.TeacherId == model.TeacherId && (!ar.Signature ?? false))
-                .CountAsync();
-
-            var existingRecord = await _db.TeacherSalaries
-                .Where(x => x.Date == date)
-                .Include(x => x.TeachersSalariesRows)
-                .Select(x => new
-                {
-                    TeacherSalary = x,
-                    SalaryRow = x.TeachersSalariesRows.FirstOrDefault(y => y.Teacher.Id == model.TeacherId)
-                })
-                .FirstOrDefaultAsync();
-
-            if (existingRecord != null) // Update case
+            if (existing is not null) // Update
             {
-                var salaryRow = existingRecord.SalaryRow;
-
-                if (salaryRow != null)
-                {
-                    salaryRow.Salary = Math.Max(model.Salary ?? salaryRow.Salary, 0);
-                    salaryRow.DaysAbsence = teacherAbsenceCount;
-                    salaryRow.NetSalary = (model.Salary.HasValue || teacherAbsenceCount != salaryRow.DaysAbsence)
-                        ? Math.Max(0, ((model.Salary ?? salaryRow.Salary) - ((model.Salary ?? salaryRow.Salary) / 30 * teacherAbsenceCount)))
-                        : salaryRow.NetSalary;
-                    salaryRow.Signature = model.Signature ?? salaryRow.Signature;
-                }
-                else
-                {
-                    existingRecord.TeacherSalary.TeachersSalariesRows.Add(new TeachersSalariesRow
-                    {
-                        TeacherId = model.TeacherId,
-                        Salary = Math.Max(model.Salary ?? 0, 0),
-                        DaysAbsence = teacherAbsenceCount,
-                        NetSalary = Math.Max(0, (model.Salary ?? 0) - ((model.Salary ?? 0) / 30) * teacherAbsenceCount),
-                        Signature = model.Signature ?? false
-                    });
-                }
+                existing.Salary = model.Salary ?? existing.Salary;
+                existing.IsPaid = model.IsPaid ?? existing.IsPaid;
+                existing.PaidAt = (model.IsPaid ?? existing.IsPaid) ? DateTime.Now : existing.PaidAt;
             }
-            else // Insert case
+            else // Insert
             {
-                var newSalaryRecord = new TeachersSalaries
+                float salary = Math.Max(model.Salary ?? 0, 0);
+
+                await _db.TeacherSalaries.AddAsync(new TeacherSalary
                 {
-                    Date = date,
-                    TeachersSalariesRows = new List<TeachersSalariesRow>
-                    {
-                        new ()
-                        {
-                            TeacherId = model.TeacherId,
-                            Salary = Math.Max(model.Salary ?? 0, 0),
-                            DaysAbsence = teacherAbsenceCount,
-                            NetSalary = Math.Max(0, (model.Salary ?? 0) - ((model.Salary ?? 0) / 30) * teacherAbsenceCount),
-                            Signature = model.Signature ?? false
-                        }
-                    }
-                };
-                await _db.TeacherSalaries.AddAsync(newSalaryRecord);
+                    TeacherId = model.TeacherId,
+                    GroupId = model.GroupId,
+                    Year = year,
+                    Month = month,
+                    Salary = salary,
+                    IsPaid = model.IsPaid ?? false,
+                    PaidAt = (model.IsPaid ?? false) ? DateTime.Now : null
+                });
             }
+
             await _db.SaveChangesAsync();
             return Ok(new { message = "تم تحديث الرواتب بنجاح" });
         }
 
+        [HttpGet("my-salaries")]
+        public async Task<IActionResult> GetMySalaries([FromQuery] int year)
+        {
+            var teacherId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            if (teacherId <= 0 || year <= 0)
+                return BadRequest(new { message = "ادخل id صحيح" });
 
+            var result = await _db.TeacherSalaries.AsNoTracking().Where(ts => ts.TeacherId == teacherId && ts.Year == year)
+                .Select(ts => new
+                {
+                    ts.Id,
+                    ts.Year,
+                    ts.Month,
+                    ts.Salary,
+                    ts.IsPaid,
+                    ts.PaidAt,
+                    ts.GroupId,
+                    GroupName = ts.Group.Name
+                })
+                .ToListAsync();
+            return Ok(result);
+        }
 
+        [HttpPatch("my-salaries/{salaryId}/mark-as-paid")]
+        public async Task<IActionResult> MarkAsPaid([FromRoute] int salaryId)
+        {
+            var teacherId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            if (teacherId <= 0 || salaryId <= 0)
+                return BadRequest(new { message = "ادخل id صحيح" });
+
+            var result = await _db.TeacherSalaries.Where(ts => ts.Id == salaryId && ts.TeacherId == teacherId).FirstOrDefaultAsync();
+            if (result == null) return BadRequest(new { message = "لايوجد راتب" });
+
+            result.PaidAt = DateTime.Now;
+            result.IsPaid = true;
+
+            await _db.SaveChangesAsync();
+            return Ok(new { message = "تم تحديث الراتب كمستلم بنجاح" });
+        }
     }
 }

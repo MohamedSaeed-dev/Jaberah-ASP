@@ -5,6 +5,9 @@
         public int Id { get; set; }
         public string TeacherName { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
+        public TimeOnly? WindowStart { get; set; }
+        public TimeOnly? WindowEnd { get; set; }
+        public decimal? FlexibleMinutes { get; set; }
         public List<TeacherGroupsDataForView> Groups { get; set; }
     }
     public class TeacherGroupsDataForView

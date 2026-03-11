@@ -16,14 +16,11 @@ namespace Jaberah.Controllers
         private readonly IMapper _mapper = mapper;
 
         [HttpPost("monthly-exam")]
-        public async Task<IActionResult> UpsertMonthlyExams([FromQuery] int followStudentId, [FromBody] UpsertMonthlyExamsDTO model)
+        public async Task<IActionResult> UpsertMonthlyExams([FromBody] UpsertMonthlyExamsDTO model)
         {
-            if (followStudentId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
-            if (!await _db.FollowStudents.AnyAsync(x => x.Id == followStudentId))
-            {
-                return BadRequest(new { message = "لايوجد متابعة الطالب" });
-            }
-            var exam = await _db.Exams.FirstOrDefaultAsync(x => x.FollowStudentsId == followStudentId);
+            if (model.StudentId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+
+            var exam = await _db.Exams.FirstOrDefaultAsync(x => x.StudentId == model.StudentId && x.Date == model.Date);
 
             if (exam is not null) // update
             {
@@ -36,7 +33,8 @@ namespace Jaberah.Controllers
                 model.PaperExam = Math.Max(Math.Min(model.PaperExam ?? 0, 20), 0);
                 model.OralExam = Math.Max(Math.Min(model.OralExam ?? 0, 10), 0);
                 var newExam = _mapper.Map<Exam>(model);
-                newExam.FollowStudentsId = followStudentId;
+                newExam.StudentId = model.StudentId;
+                newExam.Date = model.Date;
                 await _db.Exams.AddAsync(newExam);
             }
             await _db.SaveChangesAsync();
@@ -56,7 +54,7 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "ادخل تاريخ صحيح" });
             }
 
-            int monthsDifference = (toDate.Year - fromDate.Year) * 12 + toDate.Month - fromDate.Month + 1;
+            int monthsDifference = (toDate.Year - fromDate.Year) * 12 + toDate.Month - fromDate.Month;
             if (monthsDifference != 4)
                 return BadRequest(new { message = "الفارق يجب ان يكون 4 اشهر" });
 
@@ -87,10 +85,9 @@ namespace Jaberah.Controllers
             {
                 return BadRequest(new { message = "البيانات غير صحيحة", errors = ModelState });
             }
-            var Date = DateTime.Parse(dto.ExamDate);
 
             var existingExam = await _db.PartialExams
-                .FirstOrDefaultAsync(e => e.StudentId == dto.StudentId && e.Date.Date == Date.Date);
+                .FirstOrDefaultAsync(e => e.StudentId == dto.StudentId && e.Date == dto.ExamDate);
 
             if (existingExam != null)
             {
@@ -100,7 +97,7 @@ namespace Jaberah.Controllers
             var partialExam = new PartialExam
             {
                 StudentId = dto.StudentId,
-                Date = Date,
+                Date = dto.ExamDate,
                 Question1 = dto.Question1,
                 Question2 = dto.Question2,
                 Question3 = dto.Question3,
@@ -112,12 +109,11 @@ namespace Jaberah.Controllers
                 Question9 = dto.Question9,
                 Question10 = dto.Question10,
                 Performance = dto.Performance,
-                Muhktabir = dto.Muhktabir,
+                Tester = dto.Tester,
                 Part = dto.Part,
                 Rate = dto.Rate,
                 Notes = dto.Notes,
-                TotalScore = dto.TotalScore,
-                CreatedAt = DateTime.Now
+                TotalScore = dto.TotalScore
             };
 
             _db.PartialExams.Add(partialExam);
@@ -152,12 +148,11 @@ namespace Jaberah.Controllers
             partialExam.Question9 = dto.Question9;
             partialExam.Question10 = dto.Question10;
             partialExam.Performance = dto.Performance;
-            partialExam.Muhktabir = dto.Muhktabir;
+            partialExam.Tester = dto.Tester;
             partialExam.Part = dto.Part;
             partialExam.Rate = dto.Rate;
             partialExam.Notes = dto.Notes;
             partialExam.TotalScore = dto.TotalScore;
-            partialExam.UpdatedAt = DateTime.Now;
 
             await _db.SaveChangesAsync();
 
@@ -165,12 +160,9 @@ namespace Jaberah.Controllers
         }
 
         [HttpGet("partial-exam/group/{groupId}")]
-        public async Task<IActionResult> GetGroupExamsByDateAsync([FromRoute] int groupId, [FromQuery] string date)
+        public async Task<IActionResult> GetGroupExamsByDateAsync([FromRoute] int groupId, [FromQuery] DateOnly date)
         {
-            if (!DateTime.TryParse(date, out DateTime examDate))
-            {
-                return BadRequest(new { message = "تنسيق التاريخ غير صحيح" });
-            }
+            if (date == default) return BadRequest(new { message = "ادخل تاريخ صحيح" });
 
             // Get all students in the group
             var students = await _db.Students
@@ -178,7 +170,7 @@ namespace Jaberah.Controllers
                 .Select(s => new
                 {
                     s.Id,
-                    s.StudentName
+                    s.Name
                 })
                 .ToListAsync();
 
@@ -186,7 +178,7 @@ namespace Jaberah.Controllers
             var studentIds = students.Select(s => s.Id).ToList();
 
             var exams = await _db.PartialExams
-                .Where(e => studentIds.Contains(e.StudentId) && e.Date.Date == examDate.Date)
+                .Where(e => studentIds.Contains(e.StudentId) && e.Date == date)
                 .ToDictionaryAsync(e => e.StudentId, e => e);
 
             // Merge students with their exams (if any)
@@ -198,7 +190,7 @@ namespace Jaberah.Controllers
                     return new GetStudentsPartialExams
                     {
                         StudentId = s.Id,
-                        StudentName = s.StudentName,
+                        StudentName = s.Name,
                         ExamId = exam?.Id,
                         Question1 = exam?.Question1,
                         Question2 = exam?.Question2,
@@ -211,7 +203,7 @@ namespace Jaberah.Controllers
                         Question9 = exam?.Question9,
                         Question10 = exam?.Question10,
                         Performance = exam?.Performance,
-                        Muhktabir = exam?.Muhktabir,
+                        Tester = exam?.Tester,
                         Rate = exam?.Rate,
                         Part = exam?.Part,
                         Notes = exam?.Notes,
@@ -225,7 +217,7 @@ namespace Jaberah.Controllers
         }
 
         [HttpGet("partial-exam/{id}")]
-        public async Task<IActionResult> GetByIdAsync(int id)
+        public async Task<IActionResult> GetByIdAsync([FromRoute] int id)
         {
             var partialExam = await _db.PartialExams
            .Include(e => e.Student)

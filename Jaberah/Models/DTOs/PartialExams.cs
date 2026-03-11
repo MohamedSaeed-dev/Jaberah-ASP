@@ -8,7 +8,7 @@ namespace Jaberah.Models.DTOs
         public int StudentId { get; set; }
 
         [Required]
-        public string ExamDate { get; set; } // Format: "YYYY-MM-DD"
+        public DateOnly ExamDate { get; set; } // Format: "YYYY-MM-DD"
 
         [Range(0, 1.5)]
         public decimal Question1 { get; set; }
@@ -44,7 +44,7 @@ namespace Jaberah.Models.DTOs
         public decimal Performance { get; set; }
 
         [MaxLength(200)]
-        public string? Muhktabir { get; set; }
+        public string? Tester { get; set; }
 
         [MaxLength(200)]
         public string? Part { get; set; }
@@ -96,7 +96,7 @@ namespace Jaberah.Models.DTOs
         public decimal Performance { get; set; }
 
         [MaxLength(200)]
-        public string? Muhktabir { get; set; }
+        public string? Tester { get; set; }
 
         [MaxLength(200)]
         public string? Part { get; set; }

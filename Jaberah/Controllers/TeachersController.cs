@@ -3,7 +3,6 @@ using Jaberah.Helpers;
 using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
 using Jaberah.Models.ViewModels.Groups;
-using Jaberah.Models.ViewModels.Students;
 using Jaberah.Models.ViewModels.Teachers;
 using Jaberah.Validations.Teachers;
 using Microsoft.AspNetCore.Mvc;
@@ -24,18 +23,21 @@ namespace Jaberah.Controllers
         [HttpGet]
         public async Task<IActionResult> GetTeachers([FromQuery] string searchText = "", [FromQuery] bool withoutGroups = false, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var query = _db.Teachers.AsNoTracking().Where(x => x.TeacherName.Contains(searchText)).AsQueryable();
+            var query = _db.Teachers.AsNoTracking().Where(x => x.Name.Contains(searchText)).AsQueryable();
             if (withoutGroups) query = query.Where(x => x.Groups == null || x.Groups.Count < 1).AsQueryable();
 
             var selectedQuery = query.Select(x => new GetTeachersForView
             {
                 Id = x.Id,
-                TeacherName = x.TeacherName,
+                TeacherName = x.Name,
                 PhoneNumber = x.PhoneNumber,
+                WindowStart = x.WindowStart,
+                WindowEnd = x.WindowEnd,
+                FlexibleMinutes = x.FlexibleMinutes,
                 Groups = x.Groups.Select(y => new TeacherGroupsDataForView
                 {
                     GroupId = y.Id,
-                    GroupName = y.GroupName,
+                    GroupName = y.Name,
                 }).ToList()
             }).AsQueryable();
 
@@ -50,13 +52,13 @@ namespace Jaberah.Controllers
         {
             const string cacheKey = "TeachersForGeneralUse";
 
-            if (!_cache.TryGetValue(cacheKey, out List<GetTeachersForGeneralUse> teachers))
+            if (!_cache.TryGetValue(cacheKey, out List<GetTeachersForGeneralUse>? teachers))
             {
                 teachers = await _db.Teachers.AsNoTracking()
                     .Select(x => new GetTeachersForGeneralUse
                     {
                         Id = x.Id,
-                        TeacherName = x.TeacherName,
+                        TeacherName = x.Name,
                     }).ToListAsync();
 
                 _cache.Set(cacheKey, teachers, new MemoryCacheEntryOptions
@@ -81,10 +83,10 @@ namespace Jaberah.Controllers
                 .Select(x => new
                 {
                     x.Id,
-                    x.GroupName,
+                    x.Name,
                     x.TeacherId,
                     x.Students.Count,
-                    x.Teacher.TeacherName,
+                    TeacherName = x.Teacher.Name,
                     x.Period,
                 }).ToListAsync();
 
@@ -93,7 +95,7 @@ namespace Jaberah.Controllers
             return Ok(query.Select(x => new GetGroupForView
             {
                 Id = x.Id,
-                GroupName = x.GroupName,
+                GroupName = x.Name,
                 TeacherId = x.TeacherId,
                 StudentsNo = x.Count,
                 TeacherName = x.TeacherName,
@@ -113,7 +115,7 @@ namespace Jaberah.Controllers
                 .Select(x => new
                 {
                     x.Id,
-                    x.GroupName,
+                    x.Name,
                 }).ToListAsync();
 
             if (query is null) return BadRequest(new { message = "لاتوجد حلقات لهذا المعلم" });
@@ -121,7 +123,7 @@ namespace Jaberah.Controllers
             return Ok(query.Select(x => new GetGroupsOfTeacherForGeneralUse
             {
                 Id = x.Id,
-                GroupName = x.GroupName
+                Name = x.Name
             }));
         }
 
@@ -131,7 +133,7 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> AddTeacher([FromBody] AddTeacherDTO model)
         {
             var existingTeacher = await _db.Teachers
-                .FirstOrDefaultAsync(t => t.TeacherName == model.TeacherName.Trim());
+                .FirstOrDefaultAsync(t => t.Name == model.TeacherName.Trim());
 
             if (existingTeacher != null)
             {
@@ -158,7 +160,7 @@ namespace Jaberah.Controllers
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(model.PhoneNumber);
 
             var newTeacher = _mapper.Map<Teacher>(model);
-            newTeacher.TeacherName = newTeacher.TeacherName.Trim();
+            newTeacher.Name = newTeacher.Name.Trim();
             newTeacher.Password = hashedPassword;
             newTeacher.Role = Role.TEACHER;
             newTeacher.Groups = groups;
@@ -213,8 +215,11 @@ namespace Jaberah.Controllers
                 teacher.Password = BCrypt.Net.BCrypt.HashPassword(model.NewPassword);
             }
 
-            teacher.TeacherName = string.IsNullOrEmpty(model.TeacherName) ? teacher.TeacherName.Trim() : model.TeacherName.Trim();
+            teacher.Name = string.IsNullOrEmpty(model.TeacherName) ? teacher.Name.Trim() : model.TeacherName.Trim();
             teacher.PhoneNumber = string.IsNullOrEmpty(model.PhoneNumber) ? teacher.PhoneNumber : model.PhoneNumber;
+            teacher.WindowStart = model.WindowStart ?? teacher.WindowStart;
+            teacher.WindowEnd = model.WindowEnd ?? teacher.WindowEnd;
+            teacher.FlexibleMinutes = model.FlexibleMinutes ?? teacher.FlexibleMinutes;
             List<Group>? newGroups = [];
             if (model.GroupsId != null && model.GroupsId.Count > 0)
             {
@@ -256,14 +261,14 @@ namespace Jaberah.Controllers
         {
             var cacheKey = $"DeletedTeachers";
 
-            if (!_cache.TryGetValue(cacheKey, out List<GetDeletedTeachersForView> teachers))
+            if (!_cache.TryGetValue(cacheKey, out List<GetDeletedTeachersForView>? teachers))
             {
                 var query = _db.Teachers.AsNoTracking().IgnoreQueryFilters().Where(x => x.DeletedAt != null).AsQueryable();
 
                 teachers = (await query.Select(x => new GetDeletedTeachersForView
                 {
                     Id = x.Id,
-                    TeacherName = x.TeacherName,
+                    TeacherName = x.Name,
                     PhoneNumber = x.PhoneNumber,
                 }).ToListAsync());
 

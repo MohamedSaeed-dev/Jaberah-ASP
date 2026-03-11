@@ -34,7 +34,7 @@ namespace Jaberah.Controllers
         {
             var cacheKey = withoutTeacher ? $"{CacheKey}_WithoutTeacher" : CacheKey;
 
-            if (!_cache.TryGetValue(cacheKey, out List<GetGroupsForView> groups))
+            if (!_cache.TryGetValue(cacheKey, out List<GetGroupsForView>? groups))
             {
                 var query = _db.Groups.AsNoTracking().AsQueryable();
 
@@ -43,16 +43,16 @@ namespace Jaberah.Controllers
                 groups = (await query.Select(x => new
                 {
                     x.Id,
-                    x.GroupName,
+                    x.Name,
                     x.Period,
                     x.TeacherId,
-                    x.Teacher.TeacherName,
+                    TeacherName = x.Teacher.Name,
                     StudentsCount = x.Students.Count,
                 }).ToListAsync())
                 .Select(x => new GetGroupsForView
                 {
                     Id = x.Id,
-                    GroupName = x.GroupName,
+                    GroupName = x.Name,
                     Period = GetPeriodName((byte)x.Period),
                     TeacherId = x.TeacherId,
                     TeacherName = x.TeacherName,
@@ -74,13 +74,13 @@ namespace Jaberah.Controllers
         {
             const string cacheKey = "GroupsForGeneralUse";
 
-            if (!_cache.TryGetValue(cacheKey, out List<GetGroupsForGeneralUse> groups))
+            if (!_cache.TryGetValue(cacheKey, out List<GetGroupsForGeneralUse>? groups))
             {
                 groups = await _db.Groups.AsNoTracking()
                     .Select(x => new GetGroupsForGeneralUse
                     {
                         Id = x.Id,
-                        GroupName = x.GroupName,
+                        Name = x.Name,
                     }).ToListAsync();
 
                 _cache.Set(cacheKey, groups, new MemoryCacheEntryOptions
@@ -105,11 +105,11 @@ namespace Jaberah.Controllers
             }
 
             var query = _db.Students.AsNoTracking()
-                .Where(x => (x.GroupId.HasValue && x.GroupId.Value == groupId) && x.StudentName.Contains(searchText))
+                .Where(x => (x.GroupId.HasValue && x.GroupId.Value == groupId) && x.Name.Contains(searchText))
                 .Select(x => new GetStudentsForGroupForView
                 {
                     Id = x.Id,
-                    StudentName = x.StudentName,
+                    StudentName = x.Name,
                     PhoneNumber = x.PhoneNumber,
                     SchoolClass = x.SchoolClass,
                     SchoolLevel = x.SchoolLevel,
@@ -136,7 +136,7 @@ namespace Jaberah.Controllers
             {
                 groups = await _db.Groups.AsNoTracking()
                     .Where(g => !g.TeacherId.HasValue)
-                    .Select(g => new { g.Id, g.GroupName })
+                    .Select(g => new { g.Id, g.Name })
                     .ToListAsync();
 
                 _cache.Set(cacheKey, groups, TimeSpan.FromDays(7));
@@ -158,7 +158,7 @@ namespace Jaberah.Controllers
 
             var groups = await _db.Groups.AsNoTracking()
                 .Where(g => (g.TeacherId.HasValue && g.TeacherId.Value == teacherId) || !g.TeacherId.HasValue)
-                .Select(g => new { g.Id, g.GroupName })
+                .Select(g => new { g.Id, g.Name })
                 .ToListAsync();
 
             return Ok(groups);
@@ -170,7 +170,7 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> AddGroup([FromBody] AddGroupDTO model)
         {
             var existingGroup = await _db.Groups
-                .FirstOrDefaultAsync(g => g.GroupName.Trim() == model.GroupName.Trim());
+                .FirstOrDefaultAsync(g => g.Name.Trim() == model.GroupName.Trim());
 
             if (existingGroup != null)
                 return BadRequest(new { message = "الحلقة موجودة مسبقاً" });
@@ -205,7 +205,7 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "لا يوجد معلم" });
             }
 
-            group.GroupName = !string.IsNullOrWhiteSpace(model.GroupName) ? model.GroupName : group.GroupName;
+            group.Name = !string.IsNullOrWhiteSpace(model.GroupName) ? model.GroupName : group.Name;
             group.TeacherId = model.TeacherId;
             group.Period = model.Period ?? group.Period;
 
@@ -240,20 +240,20 @@ namespace Jaberah.Controllers
         {
             var cacheKey = $"{CacheKey}_DeletedGroups";
 
-            if (!_cache.TryGetValue(cacheKey, out List<GetDeletedGroupsForView> groups))
+            if (!_cache.TryGetValue(cacheKey, out List<GetDeletedGroupsForView>? groups))
             {
                 var query = _db.Groups.AsNoTracking().IgnoreQueryFilters().Where(x => x.DeletedAt != null).AsQueryable();
 
                 groups = (await query.Select(x => new
                 {
                     x.Id,
-                    x.GroupName,
+                    x.Name,
                     x.Period,
                 }).ToListAsync())
                 .Select(x => new GetDeletedGroupsForView
                 {
                     Id = x.Id,
-                    GroupName = x.GroupName,
+                    GroupName = x.Name,
                     Period = GetPeriodName((byte)x.Period),
                 }).ToList();
 
@@ -308,8 +308,15 @@ namespace Jaberah.Controllers
             var group = await _db.Groups.FindAsync(groupId);
             if (group == null) return NotFound(new { message = "لاتوجد حلقة" });
 
-            var book = _mapper.Map<Book>(dto);
-            book.Group = group;
+            var book = new Book
+            {
+                Title = dto.Title ?? "",
+                From = dto.From ?? "",
+                To = dto.To ?? "",
+                Date = new DateTime(dto.Date.Year, dto.Date.Month, dto.Date.Day),
+                GroupId = groupId,
+                Group = group
+            };
 
             await _db.Books.AddAsync(book);
             await _db.SaveChangesAsync();
@@ -324,7 +331,10 @@ namespace Jaberah.Controllers
             if (book == null)
                 return NotFound(new { message = "الكتاب غير موجود" });
 
-            _mapper.Map(dto, book);
+            book.Title = dto.Title ?? book.Title;
+            book.From = dto.From ?? book.From;
+            book.To = dto.To ?? book.To;
+            book.Date = (dto.Date != default) ? new DateTime(dto.Date.Year, dto.Date.Month, dto.Date.Day) : book.Date;
             await _db.SaveChangesAsync();
 
             return Ok(new { message = "تم تحديث بيانات الكتاب" });

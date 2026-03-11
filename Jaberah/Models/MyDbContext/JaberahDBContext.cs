@@ -1,7 +1,6 @@
 ﻿using Jaberah.Models.JaberahModels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
-using System.Globalization;
 using System.Linq.Expressions;
 using Version = Jaberah.Models.JaberahModels.Version;
 
@@ -17,20 +16,18 @@ namespace Jaberah.Models.MyDbContext
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<Group> Groups { get; set; }
         public DbSet<Student> Students { get; set; }
-        public DbSet<TeachersAttendances> TeacherAttendances { get; set; }
-        public DbSet<TeachersAttendancesRow> TeacherAttendanceRows { get; set; }
-        public DbSet<FollowStudent> FollowStudents { get; set; }
-        public DbSet<FollowStudentRow> FollowStudentRows { get; set; }
+        public DbSet<StudentAttendance> StudentAttendances { get; set; }
+        public DbSet<TeacherAttendance> TeacherAttendances { get; set; }
+        public DbSet<SaveLesson> SaveLessons { get; set; }
+        public DbSet<ReviewLesson> ReviewLessons { get; set; }
         public DbSet<Exam> Exams { get; set; }
-        public DbSet<TeachersSalaries> TeacherSalaries { get; set; }
-        public DbSet<TeachersSalariesRow> TeacherSalariesRows { get; set; }
-        public DbSet<WithTeacherFriend> WithTeacherFriends { get; set; }
-        public DbSet<Surah> Surahs { get; set; }
+        public DbSet<TeacherSalary> TeacherSalaries { get; set; }
         public DbSet<MidFinal> MidFinals { get; set; }
         public DbSet<PartialExam> PartialExams { get; set; }
         public DbSet<Version> Versions { get; set; }
-
         public DbSet<Book> Books { get; set; }
+        public DbSet<Prayer> Prayers { get; set; }
+        public DbSet<StudentPrayerAttendance> StudentPrayerAttendances { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -38,11 +35,21 @@ namespace Jaberah.Models.MyDbContext
             {
                 if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
                 {
-                    modelBuilder.Entity(entityType.ClrType)
-                        .HasQueryFilter(ConvertFilterExpression<BaseEntity>(e => e.DeletedAt == null, entityType.ClrType));
+                    var entity = modelBuilder.Entity(entityType.ClrType);
+
+                    entity.HasQueryFilter(
+                        ConvertFilterExpression<BaseEntity>(e => e.DeletedAt == null, entityType.ClrType)
+                    );
+
+                    entity.Property(nameof(BaseEntity.CreatedAt))
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    entity.Property(nameof(BaseEntity.UpdatedAt))
+                        .HasDefaultValueSql("GETUTCDATE()");
                 }
             }
 
+            // PartialExam: keep precision and unique per student/date
             modelBuilder.Entity<PartialExam>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -64,30 +71,33 @@ namespace Jaberah.Models.MyDbContext
                 entity.Property(e => e.Performance).HasColumnType("decimal(3,1)");
                 entity.Property(e => e.TotalScore).HasColumnType("decimal(4,1)");
 
-                entity.Property(e => e.Muhktabir).HasMaxLength(200);
+                entity.Property(e => e.Tester).HasMaxLength(200);
                 entity.Property(e => e.Part).HasMaxLength(200);
                 entity.Property(e => e.Rate).HasMaxLength(200);
-
                 entity.Property(e => e.Notes).HasMaxLength(500);
 
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
-
                 entity.HasOne(e => e.Student)
-                      .WithMany()
+                      .WithMany(s => s.PartialExams)
                       .HasForeignKey(e => e.StudentId)
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
+            // Book
             modelBuilder.Entity<Book>(entity =>
             {
                 entity.HasKey(e => e.Id);
 
+                entity.Property(e => e.Title).IsRequired().HasMaxLength(250);
+                entity.Property(e => e.From).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.To).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Date).IsRequired();
+
                 entity.HasOne(e => e.Group)
-                      .WithMany(e => e.Books)
+                      .WithMany(g => g.Books)
                       .HasForeignKey(e => e.GroupId)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                entity.HasIndex(e => new { e.GroupId, e.Month });
+                entity.HasIndex(e => new { e.GroupId, e.Date }).HasDatabaseName("IX_Books_GroupId_Date");
             });
 
             // Exam
@@ -95,15 +105,24 @@ namespace Jaberah.Models.MyDbContext
             {
                 entity.HasKey(e => e.Id);
 
-                entity.HasOne(e => e.FollowStudents)
-                      .WithOne(f => f.Exams)
-                      .HasForeignKey<Exam>(e => e.FollowStudentsId)
+                entity.Property(e => e.PaperExam).HasDefaultValue(0);
+                entity.Property(e => e.OralExam).HasDefaultValue(0);
+
+                entity.HasOne(e => e.Student)
+                      .WithMany(f => f.Exams)
+                      .HasForeignKey(e => e.StudentId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.StudentId, e.Date }).HasDatabaseName("IX_Exams_StudentId_Date");
             });
 
+            // Version
             modelBuilder.Entity<Version>(ver =>
             {
                 ver.HasKey(e => e.Id);
+                ver.Property(e => e.LatestVersion).IsRequired().HasMaxLength(50);
+                ver.Property(e => e.MinRequiredVersion).IsRequired().HasMaxLength(50);
+                ver.Property(e => e.URL).IsRequired().HasMaxLength(500);
             });
 
             // MidFinal
@@ -111,77 +130,63 @@ namespace Jaberah.Models.MyDbContext
             {
                 x.HasKey(a => a.Id);
 
+                x.Property(a => a.FromDate).IsRequired();
+                x.Property(a => a.ToDate).IsRequired();
+                x.Property(a => a.Grade).IsRequired();
+
                 x.HasOne(a => a.Student)
-                .WithMany(a => a.MidFinals)
-                .HasForeignKey(a => a.StudentId)
-                .OnDelete(DeleteBehavior.Cascade);
+                 .WithMany(a => a.MidFinals)
+                 .HasForeignKey(a => a.StudentId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                x.HasIndex(a => new { a.StudentId, a.FromDate, a.ToDate }).HasDatabaseName("IX_MidFinals_Student_Period");
             });
 
-            // FollowStudents
-            modelBuilder.Entity<FollowStudent>(entity =>
+            // Save Lessons
+            modelBuilder.Entity<SaveLesson>(entity =>
             {
                 entity.HasKey(f => f.Id);
                 entity.Property(f => f.Date).IsRequired();
+                entity.Property(f => f.SurahFrom).IsRequired().HasMaxLength(200);
+                entity.Property(f => f.SurahTo).IsRequired().HasMaxLength(200);
+                entity.Property(f => f.VerseFrom).IsRequired().HasMaxLength(50);
+                entity.Property(f => f.VerseTo).IsRequired();
+                entity.Property(f => f.Rate).IsRequired().HasMaxLength(50);
+                entity.Property(f => f.Notes).HasMaxLength(500);
 
                 entity.HasOne(f => f.Student)
-                      .WithMany()
+                      .WithMany(s => s.SaveLessons)
                       .HasForeignKey(f => f.StudentId)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                entity.HasMany(f => f.FollowStudentsRows)
-                      .WithOne(row => row.FollowStudents)
-                      .HasForeignKey(row => row.FollowStudentsId)
-                      .OnDelete(DeleteBehavior.Cascade);
+                entity.HasIndex(f => new { f.StudentId, f.Date }).HasDatabaseName("IX_SaveLessons_StudentId_Date");
             });
 
-            // FollowStudentsRow
-            modelBuilder.Entity<FollowStudentRow>(entity =>
+            // Review Lessons
+            modelBuilder.Entity<ReviewLesson>(entity =>
             {
-                entity.HasKey(row => row.Id);
+                entity.HasKey(f => f.Id);
+                entity.Property(f => f.Date).IsRequired();
+                entity.Property(f => f.SurahFrom).IsRequired().HasMaxLength(200);
+                entity.Property(f => f.SurahTo).IsRequired().HasMaxLength(200);
+                entity.Property(f => f.VerseFrom).IsRequired().HasMaxLength(50);
+                entity.Property(f => f.VerseTo).IsRequired();
+                entity.Property(f => f.Rate).IsRequired().HasMaxLength(50);
+                entity.Property(f => f.Notes).HasMaxLength(500);
 
-                entity.HasOne(row => row.WithTeacher)
-                      .WithMany()
-                      .HasForeignKey(row => row.WithTeacherId)
+                entity.HasOne(f => f.Student)
+                      .WithMany(s => s.ReviewLessons)
+                      .HasForeignKey(f => f.StudentId)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                entity.HasOne(row => row.WithFriend)
-                      .WithMany()
-                      .HasForeignKey(row => row.WithFriendId)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(row => row.FollowStudents)
-                      .WithMany(f => f.FollowStudentsRows)
-                      .HasForeignKey(row => row.FollowStudentsId)
-                      .OnDelete(DeleteBehavior.Cascade);
-            });
-
-            // WithTeacherFriend
-            modelBuilder.Entity<WithTeacherFriend>(entity =>
-            {
-                entity.HasKey(wtf => wtf.Id);
-
-                entity.HasOne(wtf => wtf.From)
-                      .WithMany()
-                      .HasForeignKey(wtf => wtf.FromId)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(wtf => wtf.To)
-                      .WithMany()
-                      .HasForeignKey(wtf => wtf.ToId)
-                      .OnDelete(DeleteBehavior.Cascade);
-            });
-
-            // Surah
-            modelBuilder.Entity<Surah>(entity =>
-            {
-                entity.HasKey(s => s.Id);
+                entity.HasIndex(f => new { f.StudentId, f.Date }).HasDatabaseName("IX_ReviewLessons_StudentId_Date");
             });
 
             // Group
             modelBuilder.Entity<Group>(entity =>
             {
                 entity.HasKey(g => g.Id);
-                entity.Property(g => g.GroupName).IsRequired().HasMaxLength(50);
+                entity.Property(g => g.Name).IsRequired().HasMaxLength(100);
 
                 entity.HasOne(g => g.Teacher)
                       .WithMany(t => t.Groups)
@@ -192,84 +197,209 @@ namespace Jaberah.Models.MyDbContext
                       .WithOne(s => s.Group)
                       .HasForeignKey(s => s.GroupId)
                       .OnDelete(DeleteBehavior.SetNull);
+
+                // group name should be unique
+                entity.HasIndex(g => g.Name).IsUnique().HasDatabaseName("UQ_Groups_Name");
             });
 
             // Notification
             modelBuilder.Entity<Notification>(entity =>
             {
                 entity.HasKey(n => n.Id);
-                entity.Property(n => n.Title).IsRequired();
-                entity.Property(n => n.Body).IsRequired();
+                entity.Property(n => n.Title).IsRequired().HasMaxLength(250);
+                entity.Property(n => n.Body).HasMaxLength(2000);
                 entity.Property(n => n.CreatedAt).IsRequired();
+
+                entity.HasIndex(n => n.CreatedAt).HasDatabaseName("IX_Notifications_CreatedAt");
             });
 
             // Student
             modelBuilder.Entity<Student>(entity =>
             {
                 entity.HasKey(s => s.Id);
-                entity.Property(s => s.StudentName).IsRequired().HasMaxLength(100);
-                entity.Property(s => s.PhoneNumber).HasMaxLength(20);
+                entity.Property(s => s.Name).IsRequired().HasMaxLength(150);
+                entity.Property(s => s.PhoneNumber).IsRequired().HasMaxLength(30);
+                entity.Property(s => s.SchoolClass).HasMaxLength(100);
+                entity.Property(s => s.SchoolLevel).HasMaxLength(100);
+                entity.Property(s => s.StudyLevel).HasMaxLength(100);
+                entity.Property(s => s.Notes).HasMaxLength(1000);
+
+                entity.HasIndex(s => s.PhoneNumber).IsUnique().HasDatabaseName("UQ_Students_PhoneNumber");
+                entity.HasIndex(s => s.Name).IsUnique().HasDatabaseName("UQ_Students_Name");
+                entity.HasIndex(s => s.GroupId).HasDatabaseName("IX_Students_GroupId");
+
+                entity.HasOne(s => s.Group)
+                      .WithMany(g => g.Students)
+                      .HasForeignKey(s => s.GroupId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             // Teacher
             modelBuilder.Entity<Teacher>(entity =>
             {
                 entity.HasKey(t => t.Id);
-                entity.Property(t => t.TeacherName).IsRequired().HasMaxLength(100);
-                entity.Property(t => t.PhoneNumber).HasMaxLength(20);
+                entity.Property(t => t.Name).IsRequired().HasMaxLength(150);
+                entity.Property(t => t.PhoneNumber).IsRequired().HasMaxLength(30);
                 entity.Property(t => t.Password).IsRequired().HasMaxLength(200);
+                entity.Property(t => t.FCMToken).HasMaxLength(500);
+
+                entity.HasIndex(t => t.Name).IsUnique().HasDatabaseName("UQ_Teachers_Name");
+                entity.HasIndex(t => t.Role).HasDatabaseName("IX_Teachers_Role");
             });
 
             // TeachersAttendances
-            modelBuilder.Entity<TeachersAttendances>(entity =>
-            {
-                entity.HasKey(ta => ta.Id);
-                entity.Property(ta => ta.Date).IsRequired();
+            modelBuilder.Entity<TeacherAttendance>()
+                .HasIndex(x => new { x.TeacherId, x.GroupId, x.Date })
+                .IsUnique();
 
-                entity.HasMany(ta => ta.TeachersAttendancesRows)
-                      .WithOne(row => row.TeachersAttendances)
-                      .HasForeignKey(row => row.TeacherAttendanceId)
-                      .OnDelete(DeleteBehavior.Cascade);
-            });
+            modelBuilder.Entity<TeacherAttendance>()
+                .HasOne(x => x.Teacher)
+                .WithMany(t => t.Attendances)
+                .HasForeignKey(x => x.TeacherId)
+                .OnDelete(DeleteBehavior.Cascade);
 
-            // TeachersAttendancesRow
-            modelBuilder.Entity<TeachersAttendancesRow>(entity =>
-            {
-                entity.HasKey(row => row.Id);
+            modelBuilder.Entity<TeacherAttendance>()
+                .HasOne(x => x.Group)
+                .WithMany(g => g.TeacherAttendances)
+                .HasForeignKey(x => x.GroupId)
+                .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasOne(row => row.Teacher)
-                      .WithMany(t => t.TeachersAttendancesRow)
-                      .HasForeignKey(row => row.TeacherId)
-                      .OnDelete(DeleteBehavior.Cascade);
-            });
+            modelBuilder.Entity<TeacherAttendance>()
+                .Property(x => x.Status)
+                .HasConversion<int>();
 
             // TeachersSalaries
-            modelBuilder.Entity<TeachersSalaries>(entity =>
+            modelBuilder.Entity<TeacherSalary>(builder =>
             {
-                entity.HasKey(ts => ts.Id);
-                entity.Property(ts => ts.Date).IsRequired();
+                modelBuilder.Entity<TeacherSalary>()
+                    .ToTable("TeacherSalaries", table =>
+                    {
+                        table.HasCheckConstraint(
+                            "CK_TeacherSalary_Month_Range",
+                            "[Month] >= 1 AND [Month] <= 12"
+                        );
 
-                entity.HasMany(ts => ts.TeachersSalariesRows)
-                      .WithOne(row => row.TeachersSalaries)
-                      .HasForeignKey(row => row.TeachersSalariesId)
-                      .OnDelete(DeleteBehavior.Cascade);
+                        table.HasCheckConstraint(
+                            "CK_TeacherSalary_Salary_Positive",
+                            "[Salary] >= 0"
+                        );
+                    });
+                builder.HasKey(x => x.Id);
+
+                // Relationship
+                builder.HasOne(x => x.Teacher)
+                    .WithMany(t => t.Salaries)
+                    .HasForeignKey(x => x.TeacherId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Prevent duplicate salary per teacher per month
+                builder.HasIndex(x => new { x.TeacherId, x.GroupId, x.Year, x.Month })
+                    .IsUnique();
+
+                // Optional index for payroll batch queries
+                builder.HasIndex(x => new { x.Year, x.Month });
+
+                // Required fields
+                builder.Property(x => x.Year)
+                    .IsRequired();
+
+                builder.Property(x => x.Month)
+                    .IsRequired();
+
+                builder.Property(x => x.Salary)
+                    .IsRequired();
+
+                builder.Property(x => x.IsPaid)
+                    .HasDefaultValue(false);
+
+                builder.Property(x => x.PaidAt)
+                    .IsRequired(false);
             });
 
-            // TeachersSalariesRow
-            modelBuilder.Entity<TeachersSalariesRow>(entity =>
+            // StudentAttendances
+            modelBuilder.Entity<StudentAttendance>(entity =>
             {
-                entity.HasKey(row => row.Id);
+                entity.HasKey(sa => sa.Id);
+                entity.Property(sa => sa.Date).IsRequired();
 
-                entity.HasOne(row => row.Teacher)
-                      .WithMany(t => t.TeachersSalariesRow)
-                      .HasForeignKey(row => row.TeacherId)
+                entity.HasOne(sa => sa.Student)
+                      .WithMany(s => s.StudentAttendances)
+                      .HasForeignKey(sa => sa.StudentId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(sa => new { sa.StudentId, sa.Date }).IsUnique().HasDatabaseName("UQ_StudentAttendance_StudentId_Date");
+            });
+
+            modelBuilder.Entity<Prayer>(builder =>
+            {
+                builder.ToTable("Prayers");
+
+                builder.HasKey(x => x.Id);
+
+                builder.Property(x => x.Id)
+                    .ValueGeneratedNever();
+
+                builder.Property(x => x.NameAr)
+                    .IsRequired()
+                    .HasMaxLength(50);
+
+                builder.Property(x => x.NameEn)
+                    .IsRequired()
+                    .HasMaxLength(50);
+
+                builder.Property(x => x.DefaultRakats)
+                    .IsRequired();
+
+                builder.Property(x => x.DisplayOrder)
+                    .IsRequired();
+
+                builder.HasData(
+                    new Prayer { Id = 1, NameAr = "الفجر", NameEn = "Fajr", DefaultRakats = 2, DisplayOrder = 1 },
+                    new Prayer { Id = 2, NameAr = "الظهر", NameEn = "Dhuhr", DefaultRakats = 4, DisplayOrder = 2 },
+                    new Prayer { Id = 3, NameAr = "العصر", NameEn = "Asr", DefaultRakats = 4, DisplayOrder = 3 },
+                    new Prayer { Id = 4, NameAr = "المغرب", NameEn = "Maghrib", DefaultRakats = 3, DisplayOrder = 4 },
+                    new Prayer { Id = 5, NameAr = "العشاء", NameEn = "Isha", DefaultRakats = 4, DisplayOrder = 5 }
+                );
+
+            });
+
+            modelBuilder.Entity<StudentPrayerAttendance>(builder =>
+            {
+                builder.ToTable("StudentPrayerAttendances");
+
+                builder.HasKey(x => x.Id);
+
+                builder.Property(x => x.PrayerDate)
+                    .HasColumnType("date")
+                    .IsRequired();
+
+                builder.Property(x => x.RakatsCount)
+                    .IsRequired();
+
+                builder.Property(x => x.IsInGroup)
+                    .IsRequired();
+
+                builder.Property(x => x.CreatedAt)
+                    .HasDefaultValueSql("SYSDATETIME()");
+
+                builder.HasIndex(x => new { x.PrayerDate, x.StudentId, x.PrayerId })
+                    .IsUnique();
+
+                builder.HasOne(x => x.Student)
+                    .WithMany(x => x.Attendances)
+                    .HasForeignKey(x => x.StudentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                builder.HasOne(x => x.Prayer)
+                    .WithMany(x => x.Attendances)
+                    .HasForeignKey(x => x.PrayerId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
         }
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            // Get the current Hijri DateTime
-            var currentDateTimeHijri = GetHijriDateTime();
+            // Get the current DateTime
+            var currentDateTime = GetCurrentDateTime();
 
             // Iterate over the entries in the ChangeTracker
             foreach (var entry in ChangeTracker.Entries())
@@ -280,13 +410,13 @@ namespace Jaberah.Models.MyDbContext
                     // Handle newly added entities (Added state)
                     if (entry.State == EntityState.Added)
                     {
-                        baseEntity.CreatedAt = currentDateTimeHijri;
-                        baseEntity.UpdatedAt = currentDateTimeHijri;
+                        baseEntity.CreatedAt = currentDateTime;
+                        baseEntity.UpdatedAt = currentDateTime;
                     }
                     // Handle modified entities (Modified state)
                     else if (entry.State == EntityState.Modified)
                     {
-                        baseEntity.UpdatedAt = currentDateTimeHijri;
+                        baseEntity.UpdatedAt = currentDateTime;
                     }
                 }
             }
@@ -297,25 +427,12 @@ namespace Jaberah.Models.MyDbContext
 
 
 
-        // Helper method to get the current Hijri DateTime
-        public static DateTime GetHijriDateTime()
+        // Helper method to get the current DateTime
+        public static DateTime GetCurrentDateTime()
         {
-            HijriCalendar hijriCalendar = new HijriCalendar();
-
             DateTime currentDateTime = DateTime.UtcNow.AddHours(3);
 
-            // Build the date using Hijri calendar properly
-            DateTime hijriDateTime = hijriCalendar.ToDateTime(
-                hijriCalendar.GetYear(currentDateTime),
-                hijriCalendar.GetMonth(currentDateTime),
-                hijriCalendar.GetDayOfMonth(currentDateTime),
-                currentDateTime.Hour,
-                currentDateTime.Minute,
-                currentDateTime.Second,
-                currentDateTime.Millisecond
-            );
-
-            return hijriDateTime;
+            return currentDateTime;
         }
 
 
@@ -328,8 +445,8 @@ namespace Jaberah.Models.MyDbContext
                 Set<TEntity>().Attach(entity);
             }
 
-            // Mark the entity as deleted by setting DeletedAt to current Hijri date
-            entity.DeletedAt = GetHijriDateTime();
+            // Mark the entity as deleted by setting DeletedAt to current date
+            entity.DeletedAt = GetCurrentDateTime();
 
             // Mark the entity as modified (so the DeletedAt is saved)
             entry.State = EntityState.Modified;

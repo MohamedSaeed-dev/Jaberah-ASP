@@ -1,13 +1,7 @@
-﻿using FirebaseAdmin.Messaging;
-using Google.Api.Gax;
-using Jaberah.Models.DTOs;
-using Jaberah.Models.JaberahModels;
-using Jaberah.Models.MyDbContext;
+﻿using Jaberah.Models.MyDbContext;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using static Jaberah.Models.DTOs.Login;
 
 namespace Jaberah.Controllers
 {

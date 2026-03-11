@@ -2,13 +2,12 @@
 {
     public class Book : BaseEntity
     {
-        public int GroupId { get; set; }
-        public Group Group { get; set; }
+        public required int GroupId { get; set; }
+        public required string Title { get; set; }
+        public required string From { get; set; }
+        public required string To { get; set; }
+        public required DateTime Date { get; set; }
 
-        public string Title { get; set; }
-        public string From { get; set; }
-        public string To { get; set; }
-
-        public DateTime Month { get; set; }
+        public required Group Group { get; set; }
     }
 }

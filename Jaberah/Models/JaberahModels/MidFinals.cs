@@ -2,11 +2,11 @@
 {
     public class MidFinal : BaseEntity
     {
-        public int StudentId { get; set; }
-        public DateTime FromDate { get; set; }
-        public DateTime ToDate { get; set; }
-        public float Grade { get; set; }
+        public required int StudentId { get; set; }
+        public required DateTime FromDate { get; set; }
+        public required DateTime ToDate { get; set; }
+        public required float Grade { get; set; }
 
-        public Student Student { get; set; }
+        public Student Student { get; set; } = default!;
     }
 }

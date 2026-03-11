@@ -50,15 +50,7 @@ namespace Jaberah.Validations.Teachers
                     });
                 }
 
-                if (dto.GroupsId is null)
-                {
-                    validationContent.Add(new ValidationModel
-                    {
-                        Key = "الحلقات",
-                        Message = "الحلقات اجبارية"
-                    });
-                }
-                else if (dto.GroupsId.Any(x => x <= 0))
+                if (dto.GroupsId is not null && dto.GroupsId.Any(x => x <= 0))
                 {
                     validationContent.Add(new ValidationModel
                     {

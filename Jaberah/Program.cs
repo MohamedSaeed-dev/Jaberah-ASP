@@ -1,15 +1,17 @@
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
+using Hangfire;
+using Jaberah.Helpers;
+using Jaberah.Jobs;
 using Jaberah.Middlewares;
 using Jaberah.Models.MyDbContext;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Builder.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
 using Serilog;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog();
@@ -25,6 +27,7 @@ builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddScoped<VerifyTokenAttribute>();
 builder.Services.AddScoped<TokenHelper>();
 builder.Services.AddScoped<DropboxService>();
+builder.Services.AddScoped<FirebaseService>();
 builder.Services.AddScoped<HttpClient>();
 builder.Services.AddMemoryCache();
 builder.Services.AddAuthentication(options =>
@@ -94,8 +97,32 @@ builder.Services.AddSwaggerGen(sw =>
       });
 });
 
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseSqlServerStorage(builder.Configuration.GetConnectionString("DB")));
+
+builder.Services.AddHangfireServer();
+
+// Register your job service
+builder.Services.AddScoped<IAttendanceJobService, AttendanceJobService>();
+
 
 var app = builder.Build();
+
+app.UseHangfireDashboard(); // optional: view jobs at /hangfire
+
+// Schedule the job — runs every day at 11:59 PM
+RecurringJob.AddOrUpdate<IAttendanceJobService>(
+    "mark-absent-teachers",
+    job => job.MarkAbsentTeachersAsync(),
+    "59 23 * * *", // cron expression: 11:59 PM daily
+    new RecurringJobOptions
+    {
+        TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Arab Standard Time") // UTC+3
+    }
+);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -117,6 +144,7 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.Urls.Add("http://0.0.0.0:5291");
 app.UseSwagger().UseSwaggerUI(sw =>
 {
     sw.SwaggerEndpoint("/swagger/v1/swagger.json", " Jaberah API");
@@ -126,4 +154,6 @@ app.UseSwagger().UseSwaggerUI(sw =>
     sw.DisplayRequestDuration();
     //sw.EnableFilter("");
 });
+
+
 app.Run();

@@ -5,289 +5,383 @@ using Jaberah.Models.MyDbContext;
 using Jaberah.Models.ViewModels.TeachersAttendances;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Globalization;
+using System.Security.Claims;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Jaberah.Controllers
 {
     [Route("api/teachers-attendances")]
     [ApiController]
-    public class TeachersAttendancesController(JaberahDBContext db) : ControllerBase
+    public class TeachersAttendancesController(JaberahDBContext db, FirebaseService firebaseService) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
+        private readonly FirebaseService _firebaseService = firebaseService;
 
         [HttpGet("for-month-report")]
-        public async Task<IActionResult> GetTeachersAttendancesReportForMonth([FromQuery] int year, [FromQuery] int month)
+        public async Task<IActionResult> GetTeachersAttendancesReportForMonth([FromQuery] DateOnly fromDate, [FromQuery] DateOnly toDate)
         {
-            if (year <= 0 || month <= 0)
-            {
+            if (fromDate.Equals(default) || toDate.Equals(default))
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
-            }
 
-            HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime fromDate = new DateTime(year, month, 1);
-            var daysInMonth = hijriCalendar.GetDaysInMonth(year, month);
-            DateTime toDate = fromDate.AddDays(daysInMonth);
-
-            var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date >= fromDate && x.Date <= toDate)
-                .SelectMany(x => x.TeachersAttendancesRows)
-                .GroupBy(x => x.Teacher.TeacherName)
-                .Select(x => new GetTeachersAttendancesReportForMonth
+            var result = await _db.TeacherAttendances
+                .AsNoTracking()
+                .Where(a => a.Date >= fromDate && a.Date <= toDate)
+                .GroupBy(a => new { a.TeacherId, TName = a.Teacher.Name, a.GroupId, GName = a.Group.Name })
+                .Select(g => new GetTeachersAttendancesReportForMonth
                 {
-                    TeacherName = x.Key,
-                    IsExcuseNo = x.Count(y => y.IsExcuse.HasValue && y.IsExcuse.Value),
-                    SignatureNo = x.Count(y => y.Signature.HasValue && y.Signature.Value)
-                }).AsQueryable();
+                    TeacherName = g.Key.TName,
+                    GroupName = g.Key.GName,
+                    ExcuseNo = g.Count(x => x.Status == AttendanceStatus.Excused),
+                    PresentNo = g.Count(x => x.Status == AttendanceStatus.Present),
+                    AbsentNo = g.Count(x => x.Status == AttendanceStatus.Absent),
+                    LateNo = g.Count(x => x.Status == AttendanceStatus.Late)
+                })
+                .ToListAsync();
 
-
-            var allTeachersQuery = _db.Teachers.Select(x => new
-            {
-                x.Id,
-                x.TeacherName
-            });
-
-            var missingAttendanceQuery = allTeachersQuery
-                .Where(t => !_db.TeacherAttendances.AsNoTracking()
-                    .Where(x => x.Date >= fromDate && x.Date <= toDate)
-                    .SelectMany(ts => ts.TeachersAttendancesRows)
-                    .Select(sr => sr.TeacherId)
-                    .Contains(t.Id))
-                .Select(t => new GetTeachersAttendancesReportForMonth
-                {
-                    TeacherName = t.TeacherName,
-                    IsExcuseNo = 0,
-                    SignatureNo = 0,
-                });
-
-            var combinedQuery = attendancesQuery
-                .Union(missingAttendanceQuery)
-                .AsQueryable();
-
-            return Ok(await combinedQuery.ToListAsync());
+            return Ok(result);
         }
 
         [HttpGet("for-day-report")]
-        public async Task<IActionResult> GetTeachersAttendancesForDay([FromQuery] DateTime date)
+        public async Task<IActionResult> GetTeachersAttendancesForDay([FromQuery] DateOnly date)
         {
             if (date.Equals(default))
-            {
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
-            }
 
-            var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date == date).SelectMany(x => x.TeachersAttendancesRows)
-                .Select(x => new GetTeachersAttendancesForDay
+            var result = (await _db.Teachers
+                .AsNoTracking()
+                .SelectMany(
+                    teacher => teacher.Groups,
+                    (teacher, group) => new { teacher, group }
+                )
+                .GroupJoin(
+                    _db.TeacherAttendances.Where(a => a.Date == date),
+                    tg => new { TeacherId = tg.teacher.Id, GroupId = tg.group.Id },
+                    a => new { a.TeacherId, a.GroupId },
+                    (tg, attendances) => new { tg.teacher, tg.group, attendances }
+                )
+                .SelectMany(
+                    x => x.attendances.DefaultIfEmpty(),
+                    (x, a) => new
+                    {
+                        TeacherId = x.teacher.Id,
+                        TeacherName = x.teacher.Name,
+                        GroupId = x.group.Id,
+                        GroupName = x.group.Name,
+                        CheckInTime = a != null ? a.CheckInTime : null,
+                        CheckOutTime = a != null ? a.CheckOutTime : null,
+                        Status = a != null ? a.Status : AttendanceStatus.Absent
+                    }
+                )
+                .ToListAsync())
+                .Select(a => new GetTeachersAttendancesForDay
                 {
-                    Id = x.TeacherId,
-                    TeacherName = x.Teacher.TeacherName,
-                    IsExcuse = x.IsExcuse,
-                    Signature = x.Signature,
-                });
+                    TeacherId = a.TeacherId,
+                    TeacherName = a.TeacherName,
+                    GroupId = a.GroupId, 
+                    GroupName = a.GroupName,
+                    CheckInTime = a.CheckInTime,
+                    CheckOutTime = a.CheckOutTime,
+                    Status = GetAttendanceStatusName((byte)a.Status)
+                })
+                .ToList();
 
-            var allTeachersQuery = _db.Teachers.Select(x => new
-            {
-                x.Id,
-                x.TeacherName
-            });
-
-            var missingAttendanceQuery = allTeachersQuery
-                .Where(t => !_db.TeacherAttendances.AsNoTracking()
-                    .Where(ts => ts.Date == date)
-                    .SelectMany(ts => ts.TeachersAttendancesRows)
-                    .Select(sr => sr.TeacherId)
-                    .Contains(t.Id))
-                .Select(t => new GetTeachersAttendancesForDay
-                {
-                    Id = t.Id,
-                    TeacherName = t.TeacherName,
-                    IsExcuse = null,
-                    Signature = false,
-                });
-
-            var combinedQuery = attendancesQuery
-                .Union(missingAttendanceQuery)
-                .AsQueryable();
-
-            return Ok(await combinedQuery.ToListAsync());
+            return Ok(result);
         }
-
         [HttpPost]
-        public async Task<IActionResult> UpsertTeachersAttendancesForMonth([FromQuery] DateTime date, [FromBody] List<UpsertTeachersAttendancesDTO> model)
+        public async Task<IActionResult> UpsertTeacherAttendanceForDay([FromQuery] DateOnly date, [FromBody] UpsertTeachersAttendancesDTO model)
         {
-            if (date.Equals(default))
+            Console.WriteLine(model);
+
+            if (date == default)
+                return BadRequest(new { message = "ادخل تاريخ صحيح" });
+
+            if (model == null || model.TeacherId <= 0)
+                return BadRequest(new { message = "ادخل id صحيح" });
+
+            var teacher = await _db.Teachers.FindAsync(model.TeacherId);
+
+            if (teacher == null)
+                return NotFound(new { message = "المعلم غير موجود" });
+
+            // Calculate status
+            AttendanceStatus status;
+
+            if (!model.CheckInTime.HasValue)
             {
-                return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
+                status = AttendanceStatus.Absent;
+            }
+            else
+            {
+                var flexibleMinutes = teacher.FlexibleMinutes ?? 0m;
+                var flexible = TimeSpan.FromMinutes((double)flexibleMinutes);
+
+                var windowStart = teacher.WindowStart.HasValue
+                    ? teacher.WindowStart.Value.Add(-flexible)
+                    : TimeOnly.MinValue;
+
+                var windowEnd = teacher.WindowEnd.HasValue
+                    ? teacher.WindowEnd.Value.Add(flexible)
+                    : TimeOnly.MaxValue;
+
+                if (model.CheckInTime < windowStart)
+                    status = AttendanceStatus.Present;
+                else if (model.CheckInTime > windowEnd)
+                    status = AttendanceStatus.Late;
+                else
+                    status = AttendanceStatus.Present;
             }
 
-            if (model.Exists(x => x.TeacherId <= 0)) return BadRequest(new { message = "ادخل id صحيح" });
+            if (model.IsExcused.HasValue && model.IsExcused.Value)
+                status = AttendanceStatus.Excused;
 
-            if (model.Exists(x => !(x.IsExcuse.HasValue ^ x.Signature.HasValue)))
+            var existing = await _db.TeacherAttendances
+                .FirstOrDefaultAsync(a => a.Date == date && a.TeacherId == model.TeacherId && a.GroupId == model.GroupId);
+
+            if (existing != null)
             {
-                return BadRequest(new { message = "ادخل فقط قيمة واحدة للمعلم (حاضر أو غائب بعذر)" });
+                existing.CheckInTime = model.CheckInTime;
+                existing.CheckOutTime = model.CheckOutTime;
+                existing.Status = status;
             }
-
-            var existingRecord = await _db.TeacherAttendances
-                .Where(x => x.Date == date)
-                .Include(x => x.TeachersAttendancesRows)
-                .FirstOrDefaultAsync();
-
-            if (existingRecord != null)
+            else
             {
-                var attendanceRowsDictionary = existingRecord.TeachersAttendancesRows
-                    .ToDictionary(x => x.TeacherId);
-
-                foreach (var dto in model)
+                await _db.TeacherAttendances.AddAsync(new TeacherAttendance
                 {
-                    if (attendanceRowsDictionary.TryGetValue(dto.TeacherId, out var attendanceRow))
-                    {
-                        attendanceRow.IsExcuse = dto.IsExcuse;
-                        attendanceRow.Signature = dto.Signature;
-                    }
-                    else
-                    {
-                        existingRecord.TeachersAttendancesRows.Add(new TeachersAttendancesRow
-                        {
-                            TeacherId = dto.TeacherId,
-                            IsExcuse = dto.IsExcuse,
-                            Signature = dto.Signature
-                        });
-                    }
-                }
-            }
-            else // Insert case
-            {
-                var newAttendanceRecord = new TeachersAttendances
-                {
+                    TeacherId = model.TeacherId,
+                    GroupId = model.GroupId,
                     Date = date,
-                    TeachersAttendancesRows = model.Select(dto => new TeachersAttendancesRow
-                    {
-                        TeacherId = dto.TeacherId,
-                        IsExcuse = dto.IsExcuse,
-                        Signature = dto.Signature
-                    }).ToList()
-                };
-
-                await _db.TeacherAttendances.AddAsync(newAttendanceRecord);
+                    CheckInTime = model.CheckInTime,
+                    CheckOutTime = model.CheckOutTime,
+                    Status = status
+                });
             }
 
             await _db.SaveChangesAsync();
 
             return Ok(new { message = "تم تحديث الحضور بنجاح" });
         }
-
-
         [HttpGet("{teacherId}/for-day")]
-        public async Task<IActionResult> GetTeacherAttendanceForDay([FromRoute] int teacherId, [FromQuery] DateTime date)
+        public async Task<IActionResult> GetTeacherAttendanceForDay([FromRoute] int teacherId, [FromQuery] DateOnly date)
         {
             if (date == default)
                 return BadRequest(new { message = "يرجى إدخال تاريخ صحيح (سنة وشهر ويوم)" });
-
             if (teacherId <= 0)
                 return BadRequest(new { message = "يرجى إدخال معرف معلم صحيح" });
-
-            var teacherExists = await _db.Teachers.AnyAsync(x => x.Id == teacherId);
-            if (!teacherExists)
+            if (!await _db.Teachers.AnyAsync(x => x.Id == teacherId))
                 return NotFound(new { message = "المعلم غير موجود" });
 
-            var attendance = await _db.TeacherAttendances
-                .Where(a => a.Date.Date == date.Date)
-                .SelectMany(a => a.TeachersAttendancesRows
-                    .Where(row => row.TeacherId == teacherId)
-                    .Select(row => new
+            var result = (await _db.Teachers
+                .AsNoTracking()
+                .Where(t => t.Id == teacherId)
+                .SelectMany(
+                    teacher => teacher.Groups,
+                    (teacher, group) => new { teacher, group }
+                )
+                .GroupJoin(
+                    _db.TeacherAttendances.Where(a => a.Date == date),
+                    tg => new { TeacherId = tg.teacher.Id, GroupId = tg.group.Id },
+                    a => new { a.TeacherId, a.GroupId },
+                    (tg, attendances) => new { tg.teacher, tg.group, attendances }
+                )
+                .SelectMany(
+                    x => x.attendances.DefaultIfEmpty(),
+                    (x, a) => new
                     {
-                        row.IsExcuse,
-                        row.Signature,
-                        row.CreatedAt,
-                        a.Date,
-                    }))
-                .FirstOrDefaultAsync();
+                        GroupId = x.group.Id,
+                        GroupName = x.group.Name,
+                        CheckInTime = a != null ? a.CheckInTime : null,
+                        CheckOutTime = a != null ? a.CheckOutTime : null,
+                        Status = a != null ? a.Status : AttendanceStatus.Absent
+                    }
+                )
+                .ToListAsync())
+                .Select(a => new
+                {
+                    a.GroupId,
+                    a.GroupName,
+                    a.CheckInTime,
+                    a.CheckOutTime,
+                    Status = GetAttendanceStatusName((byte)a.Status)
+                })
+                .ToList();
 
-            if (attendance == null)
-                return NoContent();
-
-            return Ok(attendance);
+            return Ok(result);
         }
 
         [HttpGet("{teacherId}/for-month")]
-        public async Task<IActionResult> GetTeacherAttendanceForMonth([FromRoute] int teacherId, [FromQuery] DateTime date)
+        public async Task<IActionResult> GetTeacherAttendanceForMonth([FromRoute] int teacherId, [FromQuery] DateOnly fromDate, DateOnly toDate)
         {
-            if (date == default)
+            if (fromDate == default || toDate == default)
                 return BadRequest(new { message = "يرجى إدخال تاريخ صحيح (سنة وشهر)" });
-
             if (teacherId <= 0)
                 return BadRequest(new { message = "يرجى إدخال معرف معلم صحيح" });
-
-            var teacherExists = await _db.Teachers.AnyAsync(x => x.Id == teacherId);
-            if (!teacherExists)
+            if (!await _db.Teachers.AnyAsync(x => x.Id == teacherId))
                 return NotFound(new { message = "المعلم غير موجود" });
 
-            HijriCalendar hijriCalendar = new HijriCalendar();
-            DateTime fromDate = new DateTime(date.Year, date.Month, 1);
-            var daysInMonth = hijriCalendar.GetDaysInMonth(date.Year, date.Month);
-            DateTime toDate = fromDate.AddDays(daysInMonth);
+            var groupsOfTeacher = await _db.Groups.Where(g => g.TeacherId == teacherId).Select(g => new
+            {
+                g.Id,
+                g.Name
+            }).ToListAsync();
 
-            var attendance = await _db.TeacherAttendances
-                .Where(a => a.Date >= fromDate && a.Date <= toDate)
-                .SelectMany(a => a.TeachersAttendancesRows
-                    .Where(row => row.TeacherId == teacherId)
-                    .Select(row => new
+            var result = (await _db.Teachers
+                .AsNoTracking()
+                .Where(t => t.Id == teacherId)
+                .SelectMany(
+                    teacher => teacher.Groups,
+                    (teacher, group) => new { teacher, group }
+                )
+                .GroupJoin(
+                    _db.TeacherAttendances.Where(a => a.Date >= fromDate && a.Date <= toDate),
+                    tg => new { TeacherId = tg.teacher.Id, GroupId = tg.group.Id },
+                    a => new { a.TeacherId, a.GroupId },
+                    (tg, attendances) => new { tg.teacher, tg.group, attendances }
+                )
+                .SelectMany(
+                    x => x.attendances.DefaultIfEmpty(),
+                    (x, a) => new
                     {
-                        row.IsExcuse,
-                        row.Signature,
-                        row.CreatedAt,
-                        a.Date,
-                    }))
-                .ToListAsync();
+                        GroupId = x.group.Id,
+                        GroupName = x.group.Name,
+                        CheckInTime = a != null ? a.CheckInTime : null,
+                        CheckOutTime = a != null ? a.CheckOutTime : null,
+                        Status = a != null ? a.Status : AttendanceStatus.Absent,
+                        Date = a != null ? a.Date : null
+                    }
+                )
+                .ToListAsync())
+                .Select(a => new
+                {
+                    a.GroupId,
+                    a.GroupName,
+                    a.CheckInTime,
+                    a.CheckOutTime,
+                    a.Date,
+                    Status = GetAttendanceStatusName((byte)a.Status)
+                })
+                .ToList();
 
-            if (attendance == null)
-                return NoContent();
+            return Ok(new { groupsOfTeacher, result });
+        }
 
-            return Ok(attendance);
+        [HttpPost("check-in")]
+        public async Task<IActionResult> TeacherCheckIn([FromBody] TeacherCheckInDTO model)
+        {
+            var teacherId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            if (teacherId <= 0 || model.GroupId <= 0)
+                return BadRequest(new { message = "ادخل id صحيح" });
+
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var now = TimeOnly.FromDateTime(DateTime.Now);
+
+            var teacher = await _db.Teachers.FindAsync(teacherId);
+            if (teacher == null)
+                return NotFound(new { message = "المعلم غير موجود" });
+
+            var group = await _db.Groups.FindAsync(model.GroupId);
+            if (group == null)
+                return NotFound(new { message = "الحلقة غير موجودة" });
+
+            var existing = await _db.TeacherAttendances
+                .FirstOrDefaultAsync(a => a.Date == today
+                                       && a.TeacherId == teacherId
+                                       && a.GroupId == model.GroupId);
+
+            if (existing != null && existing.CheckInTime.HasValue)
+                return BadRequest(new { message = "تم تسجيل الحضور مسبقاً" });
+
+            // Calculate status
+            var flexibleMinutes = teacher.FlexibleMinutes ?? 0m;
+            var flexible = TimeSpan.FromMinutes((double)flexibleMinutes);
+
+            AttendanceStatus status;
+
+            var windowEnd = teacher.WindowEnd.HasValue
+                ? teacher.WindowEnd.Value.Add(flexible)
+                : TimeOnly.MaxValue;
+
+            if (now > windowEnd)
+                status = AttendanceStatus.Late;
+            else
+                status = AttendanceStatus.Present;
+
+            if (existing != null)
+            {
+                existing.CheckInTime = now;
+                existing.Status = status;
+            }
+            else
+            {
+                await _db.TeacherAttendances.AddAsync(new TeacherAttendance
+                {
+                    TeacherId = teacherId,
+                    GroupId = model.GroupId,
+                    Date = today,
+                    CheckInTime = now,
+                    Status = status
+                });
+            }
+
+            await _db.SaveChangesAsync();
+
+            if (teacher.Role != Role.ADMIN)
+                await _firebaseService.SendToTopicAsync(
+                        title: "تسجيل حضور معلم",
+                        body: $"قام المعلم {teacher.Name} بتسجيل حضوره في حلقة {group.Name} - الحالة: {(status == AttendanceStatus.Late ? "متأخر" : "حاضر")}",
+                        topic: "check-attendance"
+                );
+
+            return Ok(new { message = "تم تسجيل الحضور بنجاح", checkInTime = now });
         }
 
 
-        //[HttpGet("for-day")]
-        //public async Task<IActionResult> GetTeachersAttendancesForDay([FromQuery] int year, [FromQuery] int month, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
-        //{
-        //    if (year <= 0 || month <= 0)
-        //    {
-        //        return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
-        //    }
+        [HttpPost("check-out")]
+        public async Task<IActionResult> TeacherCheckOut([FromBody] TeacherCheckOutDTO model)
+        {
+            var teacherId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            if (teacherId <= 0 || model.GroupId <= 0)
+                return BadRequest(new { message = "ادخل id صحيح" });
 
-        //    HijriCalendar hijriCalendar = new HijriCalendar();
-        //    DateTime date = hijriCalendar.ToDateTime(year, month, 1, 0, 0, 0, 0);
+            var teacher = await _db.Teachers.FindAsync(teacherId);
+            if (teacher == null)
+                return NotFound(new { message = "المعلم غير موجود" });
 
-        //    var attendancesQuery = _db.TeacherAttendances.AsNoTracking().Where(x => x.Date == date).SelectMany(x => x.TeachersAttendancesRows).Select(x => new
-        //    {
-        //        TeacherId = x.Id,
-        //        x.Teacher.TeacherName,
-        //        x.IsExcuse,
-        //        x.Signature
-        //    });
-        //    var allTeachersQuery = _db.Teachers.Select(x => new
-        //    {
-        //        x.Id,
-        //        x.TeacherName
-        //    });
+            var group = await _db.Groups.FindAsync(model.GroupId);
+            if (group == null)
+                return NotFound(new { message = "الحلقة غير موجودة" });
 
-        //    var missingAttendanceQuery = allTeachersQuery
-        //        .Where(t => !_db.TeacherAttendances
-        //            .Where(ts => ts.Date == date)
-        //            .SelectMany(ts => ts.TeachersAttendancesRows)
-        //            .Select(sr => sr.TeacherId)
-        //            .Contains(t.Id))
-        //        .Select(t => new
-        //        {
-        //            TeacherId = t.Id,
-        //            t.TeacherName,
-        //            IsExcuse = false,
-        //            Signature = false,
-        //        });
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var now = TimeOnly.FromDateTime(DateTime.Now);
 
-        //    var combinedQuery = attendancesQuery
-        //        .Union(missingAttendanceQuery)
-        //        .OrderBy(x => x.TeacherId)
-        //        .AsQueryable();
+            var existing = await _db.TeacherAttendances
+                .FirstOrDefaultAsync(a => a.Date == today
+                                       && a.TeacherId == teacherId
+                                       && a.GroupId == model.GroupId);
 
-        //    return Ok(await combinedQuery.ToPagedListAsync(pageNumber, pageSize));
-        //}
+            if (existing == null || !existing.CheckInTime.HasValue)
+                return BadRequest(new { message = "لم يتم تسجيل الحضور بعد" });
+
+            if (existing.CheckOutTime.HasValue)
+                return BadRequest(new { message = "تم تسجيل الانصراف مسبقاً" });
+
+            existing.CheckOutTime = now;
+
+            await _db.SaveChangesAsync();
+
+            if (teacher.Role != Role.ADMIN)
+                await _firebaseService.SendToTopicAsync(
+                    title: "تسجيل انصراف معلم",
+                    body: $"قام المعلم {teacher.Name} بتسجيل انصرافه من حلقة {group.Name}",
+                    topic: "check-attendance"
+                );
+
+            return Ok(new { message = "تم تسجيل الانصراف بنجاح", checkOutTime = now });
+        }
+
+        [NonAction]
+        private string? GetAttendanceStatusName(byte status)
+        {
+            return Enum.GetName(typeof(AttendanceStatus), status);
+        }
     }
 }

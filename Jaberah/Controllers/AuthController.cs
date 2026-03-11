@@ -1,5 +1,4 @@
 ﻿using Jaberah.Middlewares;
-using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
 using Jaberah.Models.ViewModels.Teachers;
 using Microsoft.AspNetCore.Authorization;
@@ -21,7 +20,7 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> Login([FromBody] LoginDTO model)
         {
             var teacher = await _db.Teachers.Include(x => x.Groups)
-                .FirstOrDefaultAsync(t => t.TeacherName == model.Username.Trim());
+                .FirstOrDefaultAsync(t => t.Name == model.Username.Trim());
 
             if (teacher == null)
             {
@@ -36,8 +35,8 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "اسم المستخدم او كلمة المرور خاطئة" });
             }
 
-            var accessToken = _token.GenerateToken(teacher.Id.ToString(), 7);
-            var refreshToken = _token.GenerateToken(teacher.Id.ToString(), 30);
+            var accessToken = _token.GenerateToken(teacher.Id.ToString(), teacher.Name, 7);
+            var refreshToken = _token.GenerateToken(teacher.Id.ToString(), teacher.Name, 30);
 
             teacher.FCMToken = model.FCMToken;
             teacher.LastLogin = DateTime.Now;
@@ -46,7 +45,7 @@ namespace Jaberah.Controllers
             var userData = new AuthTeacher
             {
                 Id = teacher.Id,
-                TeacherName = teacher.TeacherName,
+                TeacherName = teacher.Name,
                 PhoneNumber = teacher.PhoneNumber,
                 Role = teacher.Role,
             };
@@ -75,8 +74,8 @@ namespace Jaberah.Controllers
             {
                 return Forbid();
             }
-            var newAccessToken = _token.GenerateToken(user.Id.ToString(), 7);
-            var newRefreshToken = _token.GenerateToken(user.Id.ToString(), 30);
+            var newAccessToken = _token.GenerateToken(user.Id.ToString(), user.Name, 7);
+            var newRefreshToken = _token.GenerateToken(user.Id.ToString(), user.Name, 30);
             Response.Cookies.Append("refreshToken", newRefreshToken, new CookieOptions
             {
                 HttpOnly = true,
@@ -88,7 +87,7 @@ namespace Jaberah.Controllers
             return Ok(new { accessToken = newAccessToken });
         }
 
-        [HttpPatch("update-fcm-token")]
+        [HttpPatch("fcm-token")]
         public async Task<IActionResult> UpdateFCMToken([FromBody] UpdateFCMTokenDTO model)
         {
             if (model == default || model.UserId <= 0 || string.IsNullOrWhiteSpace(model.Token))

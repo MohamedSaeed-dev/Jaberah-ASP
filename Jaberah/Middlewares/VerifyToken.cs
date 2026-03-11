@@ -50,7 +50,7 @@ namespace Jaberah.Middlewares
         private readonly IConfiguration _config = config;
         private readonly JaberahDBContext _db = db;
 
-        public string GenerateToken(string id, int days)
+        public string GenerateToken(string id, string name, int days)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(_config["TokenKey"]!);
@@ -59,6 +59,7 @@ namespace Jaberah.Middlewares
                 Subject = new ClaimsIdentity(
                 [
                     new Claim(ClaimTypes.NameIdentifier, id),
+                    new Claim(ClaimTypes.Name, name)
                 ]),
                 Expires = DateTime.UtcNow.AddDays(days),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
@@ -87,7 +88,7 @@ namespace Jaberah.Middlewares
                 {
                     return null;
                 }
-                return await _db.Teachers.Select(x => new UserViewModel { Id = x.Id, Name = x.TeacherName, PhoneNumber = x.PhoneNumber, Role = x.Role.ToString() }).FirstOrDefaultAsync(x => x.Id == int.Parse(id));
+                return await _db.Teachers.Select(x => new UserViewModel { Id = x.Id, Name = x.Name, PhoneNumber = x.PhoneNumber, Role = x.Role.ToString() }).FirstOrDefaultAsync(x => x.Id == int.Parse(id));
             }
             catch
             {

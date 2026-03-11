@@ -16,10 +16,13 @@
         public int? VerseToFriend { get; set; }
         public string? RateFriend { get; set; }
         public float? PagesFriend { get; set; }
+        public string? Notes { get; set; }
+    }
 
-
+    public record UpsertAttendanceAndBehaviorDTO
+    {
+        public int StudentId { get; set; }
         public float? Attendance { get; set; }
         public float? Behavior { get; set; }
-        public string? Notes { get; set; }
     }
 }
