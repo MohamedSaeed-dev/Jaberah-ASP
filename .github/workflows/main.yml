@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - master
+      - main-v2
 
 jobs:
   build_and_deploy:
     runs-on: windows-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -28,10 +30,22 @@ jobs:
       - name: Test with .NET
         run: dotnet test
 
-      - name: Deploy to MonsterASP.NET via WebDeploy
+      # Deploy for MASTER (Server 1)
+      - name: Deploy to MonsterASP.NET (Server 1)
+        if: github.ref == 'refs/heads/master'
         uses: rasmusbuchholdt/simply-web-deploy@2.1.0
         with:
           website-name: ${{ secrets.WEBSITE_NAME }}
           server-computer-name: ${{ secrets.SERVER_COMPUTER_NAME }}
           server-username: ${{ secrets.SERVER_USERNAME }}
           server-password: ${{ secrets.SERVER_PASSWORD }}
+
+      # Deploy for MAIN-V2 (Server 2)
+      - name: Deploy to MonsterASP.NET (Server 2)
+        if: github.ref == 'refs/heads/main-v2'
+        uses: rasmusbuchholdt/simply-web-deploy@2.1.0
+        with:
+          website-name: ${{ secrets.WEBSITE_NAME_V2 }}
+          server-computer-name: ${{ secrets.SERVER_COMPUTER_NAME_V2 }}
+          server-username: ${{ secrets.SERVER_USERNAME_V2 }}
+          server-password: ${{ secrets.SERVER_PASSWORD_V2 }}
