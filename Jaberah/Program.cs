@@ -144,7 +144,6 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.Urls.Add("http://0.0.0.0:5291");
 app.UseSwagger().UseSwaggerUI(sw =>
 {
     sw.SwaggerEndpoint("/swagger/v1/swagger.json", " Jaberah API");
