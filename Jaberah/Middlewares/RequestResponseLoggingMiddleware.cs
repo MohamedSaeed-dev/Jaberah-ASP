@@ -51,7 +51,7 @@ public class RequestResponseLoggingMiddleware
         {
             _requestLogger.Information("{@HttpLog}", new
             {
-                timestamp = DateTime.UtcNow,
+                timestamp = DateTime.UtcNow.AddHours(3).AddHours(3),
                 method = context.Request.Method,
                 url = context.Request.Path.Value,
                 body = requestBody,

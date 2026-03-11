@@ -39,7 +39,7 @@ namespace Jaberah.Controllers
             var refreshToken = _token.GenerateToken(teacher.Id.ToString(), teacher.Name, 30);
 
             teacher.FCMToken = model.FCMToken;
-            teacher.LastLogin = DateTime.Now;
+            teacher.LastLogin = DateTime.UtcNow.AddHours(3);
             await _db.SaveChangesAsync();
 
             var userData = new AuthTeacher

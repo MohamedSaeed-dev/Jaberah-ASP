@@ -15,7 +15,7 @@ namespace Jaberah.Jobs
 
         public async Task MarkAbsentTeachersAsync()
         {
-            var todayDateTime = DateTime.Today;
+            var todayDateTime = DateTime.UtcNow.AddHours(3).Date;
 
             // ⛔ Skip if Friday
             if (todayDateTime.DayOfWeek == DayOfWeek.Friday)

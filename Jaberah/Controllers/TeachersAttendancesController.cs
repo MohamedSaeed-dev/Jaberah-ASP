@@ -271,8 +271,8 @@ namespace Jaberah.Controllers
             if (teacherId <= 0 || model.GroupId <= 0)
                 return BadRequest(new { message = "ادخل id صحيح" });
 
-            var today = DateOnly.FromDateTime(DateTime.Today);
-            var now = TimeOnly.FromDateTime(DateTime.Now);
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(3).Date);
+            var now = TimeOnly.FromDateTime(DateTime.UtcNow.AddHours(3));
 
             var teacher = await _db.Teachers.FindAsync(teacherId);
             if (teacher == null)
@@ -350,8 +350,8 @@ namespace Jaberah.Controllers
             if (group == null)
                 return NotFound(new { message = "الحلقة غير موجودة" });
 
-            var today = DateOnly.FromDateTime(DateTime.Today);
-            var now = TimeOnly.FromDateTime(DateTime.Now);
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(3).Date);
+            var now = TimeOnly.FromDateTime(DateTime.UtcNow.AddHours(3));
 
             var existing = await _db.TeacherAttendances
                 .FirstOrDefaultAsync(a => a.Date == today

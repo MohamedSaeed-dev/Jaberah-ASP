@@ -79,7 +79,7 @@ namespace Jaberah.Controllers
             {
                 existing.Salary = model.Salary ?? existing.Salary;
                 existing.IsPaid = model.IsPaid ?? existing.IsPaid;
-                existing.PaidAt = (model.IsPaid ?? existing.IsPaid) ? DateTime.Now : existing.PaidAt;
+                existing.PaidAt = (model.IsPaid ?? existing.IsPaid) ? DateTime.UtcNow.AddHours(3) : existing.PaidAt;
             }
             else // Insert
             {
@@ -93,7 +93,7 @@ namespace Jaberah.Controllers
                     Month = month,
                     Salary = salary,
                     IsPaid = model.IsPaid ?? false,
-                    PaidAt = (model.IsPaid ?? false) ? DateTime.Now : null
+                    PaidAt = (model.IsPaid ?? false) ? DateTime.UtcNow.AddHours(3) : null
                 });
             }
 

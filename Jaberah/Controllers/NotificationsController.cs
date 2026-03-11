@@ -29,7 +29,7 @@ namespace Jaberah.Controllers
             }
 
             var notification = _mapper.Map<Models.JaberahModels.Notification>(message);
-            notification.CreatedAt = DateTime.Now;
+            notification.CreatedAt = DateTime.UtcNow.AddHours(3);
             await _db.Notifications.AddAsync(notification);
             await _db.SaveChangesAsync();
             return Ok(new { message = "تم ارسال الاشعار بنجاح" });
