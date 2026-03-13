@@ -47,6 +47,7 @@ namespace Jaberah.Controllers
                             l.SurahTo,
                             l.VerseFrom,
                             l.VerseTo,
+                            l.Pages,
                             l.Rate,
                             l.Notes
                         })
@@ -62,6 +63,7 @@ namespace Jaberah.Controllers
                             l.SurahTo,
                             l.VerseFrom,
                             l.VerseTo,
+                            l.Pages,
                             l.Rate,
                             l.Notes
                         })
@@ -83,14 +85,14 @@ namespace Jaberah.Controllers
                 SurahToTeacher = result.Save?.SurahTo ?? "",
                 VerseFromTeacher = int.TryParse(result.Save?.VerseFrom, out var vft) ? vft : 1,
                 VerseToTeacher = result.Save?.VerseTo ?? 1,
-                PagesTeacher = 0,
+                PagesTeacher = result.Save?.Pages ?? 0f,
                 RateTeacher = result.Save?.Rate ?? "",
 
                 SurahFromFriend = result.Review?.SurahFrom ?? "",
                 SurahToFriend = result.Review?.SurahTo ?? "",
                 VerseFromFriend = int.TryParse(result.Review?.VerseFrom, out var vff) ? vff : 1,
                 VerseToFriend = result.Review?.VerseTo ?? 1,
-                PagesFriend = 0,
+                PagesFriend = result.Review?.Pages ?? 0f,
                 RateFriend = result.Review?.Rate ?? "",
 
                 Notes = result.Save?.Notes ?? result.Review?.Notes ?? ""
