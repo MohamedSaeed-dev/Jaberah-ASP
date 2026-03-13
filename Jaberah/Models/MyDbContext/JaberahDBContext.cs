@@ -149,7 +149,7 @@ namespace Jaberah.Models.MyDbContext
                 entity.Property(f => f.Date).IsRequired();
                 entity.Property(f => f.SurahFrom).IsRequired().HasMaxLength(200);
                 entity.Property(f => f.SurahTo).IsRequired().HasMaxLength(200);
-                entity.Property(f => f.VerseFrom).IsRequired().HasMaxLength(50);
+                entity.Property(f => f.VerseFrom).IsRequired();
                 entity.Property(f => f.VerseTo).IsRequired();
                 entity.Property(f => f.Rate).IsRequired().HasMaxLength(50);
                 entity.Property(f => f.Notes).HasMaxLength(500);
@@ -169,7 +169,7 @@ namespace Jaberah.Models.MyDbContext
                 entity.Property(f => f.Date).IsRequired();
                 entity.Property(f => f.SurahFrom).IsRequired().HasMaxLength(200);
                 entity.Property(f => f.SurahTo).IsRequired().HasMaxLength(200);
-                entity.Property(f => f.VerseFrom).IsRequired().HasMaxLength(50);
+                entity.Property(f => f.VerseFrom).IsRequired();
                 entity.Property(f => f.VerseTo).IsRequired();
                 entity.Property(f => f.Rate).IsRequired().HasMaxLength(50);
                 entity.Property(f => f.Notes).HasMaxLength(500);

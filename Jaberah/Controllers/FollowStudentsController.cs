@@ -31,16 +31,12 @@ namespace Jaberah.Controllers
                     StudentName = s.Name,
 
                     Attendance = s.StudentAttendances!
-                        .Where(a => a.Date.Year == date.Year
-                                 && a.Date.Month == date.Month
-                                 && a.Date.Day == date.Day)
+                        .Where(a => a.Date.Equals(date))
                         .Select(a => new { a.Attendance, a.Behavior })
                         .FirstOrDefault(),
 
                     Save = s.SaveLessons!
-                        .Where(l => l.Date.Year == date.Year
-                                 && l.Date.Month == date.Month
-                                 && l.Date.Day == date.Day)
+                        .Where(l => l.Date.Equals(date))
                         .Select(l => new
                         {
                             l.SurahFrom,
@@ -54,9 +50,7 @@ namespace Jaberah.Controllers
                         .FirstOrDefault(),
 
                     Review = s.ReviewLessons!
-                        .Where(l => l.Date.Year == date.Year
-                                 && l.Date.Month == date.Month
-                                 && l.Date.Day == date.Day)
+                        .Where(l => l.Date.Equals(date))
                         .Select(l => new
                         {
                             l.SurahFrom,
@@ -83,14 +77,14 @@ namespace Jaberah.Controllers
 
                 SurahFromTeacher = result.Save?.SurahFrom ?? "",
                 SurahToTeacher = result.Save?.SurahTo ?? "",
-                VerseFromTeacher = int.TryParse(result.Save?.VerseFrom, out var vft) ? vft : 1,
+                VerseFromTeacher = result.Save?.VerseFrom ?? 1,
                 VerseToTeacher = result.Save?.VerseTo ?? 1,
                 PagesTeacher = result.Save?.Pages ?? 0f,
                 RateTeacher = result.Save?.Rate ?? "",
 
                 SurahFromFriend = result.Review?.SurahFrom ?? "",
                 SurahToFriend = result.Review?.SurahTo ?? "",
-                VerseFromFriend = int.TryParse(result.Review?.VerseFrom, out var vff) ? vff : 1,
+                VerseFromFriend = result.Review?.VerseFrom ?? 1,
                 VerseToFriend = result.Review?.VerseTo ?? 1,
                 PagesFriend = result.Review?.Pages ?? 0f,
                 RateFriend = result.Review?.Rate ?? "",
@@ -184,14 +178,14 @@ namespace Jaberah.Controllers
 
                     SurahFromTeacher = s?.SurahFrom ?? "",
                     SurahToTeacher = s?.SurahTo ?? "",
-                    VerseFromTeacher = int.TryParse(s?.VerseFrom, out var vft) ? vft : 1,
+                    VerseFromTeacher = s?.VerseFrom ?? 1,
                     VerseToTeacher = s?.VerseTo ?? 1,
                     PagesTeacher = 0,
                     RateTeacher = s?.Rate ?? "",
 
                     SurahFromFriend = r?.SurahFrom ?? "",
                     SurahToFriend = r?.SurahTo ?? "",
-                    VerseFromFriend = int.TryParse(r?.VerseFrom, out var vff) ? vff : 1,
+                    VerseFromFriend = r?.VerseFrom ?? 1,
                     VerseToFriend = r?.VerseTo ?? 1,
                     PagesFriend = 0,
                     RateFriend = r?.Rate ?? "",
@@ -204,7 +198,7 @@ namespace Jaberah.Controllers
         }
 
         [HttpGet("groups/{groupId}/for-day")]
-        public async Task<IActionResult> GetFollowStudentsForGroupForDay([FromRoute] int groupId,[FromQuery] DateTime date,[FromQuery] string searchText = "")
+        public async Task<IActionResult> GetFollowStudentsForGroupForDay([FromRoute] int groupId, [FromQuery] DateTime date, [FromQuery] string searchText = "")
         {
             if (date == default)
                 return BadRequest(new { message = "ادخل تاريخ صحيح" });
@@ -213,117 +207,54 @@ namespace Jaberah.Controllers
             if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
                 return BadRequest(new { message = "لاتوجد حلقة" });
 
-            var result = await _db.Students
+            var raw = await _db.Students
                 .AsNoTracking()
                 .Where(s => s.GroupId == groupId && s.Name.Contains(searchText))
-                .Select(s => new GetFollowStudentForDay
+                .Select(s => new
                 {
-                    StudentId = s.Id,
-                    StudentName = s.Name,
+                    s.Id,
+                    s.Name,
 
-                    Attendance = s.StudentAttendances!
-                        .Where(a => a.Date.Year == date.Year
-                                 && a.Date.Month == date.Month
-                                 && a.Date.Day == date.Day)
-                        .Select(a => a.Attendance)
+                    DayAttendance = s.StudentAttendances!
+                        .Where(a => a.Date.Equals(date))
                         .FirstOrDefault(),
 
-                    Behavior = s.StudentAttendances!
-                        .Where(a => a.Date.Year == date.Year
-                                 && a.Date.Month == date.Month
-                                 && a.Date.Day == date.Day)
-                        .Select(a => a.Behavior)
+                    SaveLesson = s.SaveLessons!
+                        .Where(l => l.Date.Equals(date))
                         .FirstOrDefault(),
 
-                    SurahFromTeacher = s.SaveLessons!
-                        .Where(l => l.Date.Year == date.Year
-                                 && l.Date.Month == date.Month
-                                 && l.Date.Day == date.Day)
-                        .Select(l => l.SurahFrom)
-                        .FirstOrDefault() ?? "",
-
-                    SurahToTeacher = s.SaveLessons!
-                        .Where(l => l.Date.Year == date.Year
-                                 && l.Date.Month == date.Month
-                                 && l.Date.Day == date.Day)
-                        .Select(l => l.SurahTo)
-                        .FirstOrDefault() ?? "",
-
-                    VerseFromTeacher = s.SaveLessons!
-                        .Where(l => l.Date.Year == date.Year
-                                 && l.Date.Month == date.Month
-                                 && l.Date.Day == date.Day)
-                        .Select(l => (int?)l.VerseTo)  // use VerseTo since VerseFrom is string
-                        .FirstOrDefault() ?? 1,
-
-                    VerseToTeacher = s.SaveLessons!
-                        .Where(l => l.Date.Year == date.Year
-                                 && l.Date.Month == date.Month
-                                 && l.Date.Day == date.Day)
-                        .Select(l => (int?)l.VerseTo)
-                        .FirstOrDefault() ?? 1,
-
-                    PagesTeacher = 0,
-
-                    RateTeacher = s.SaveLessons!
-                        .Where(l => l.Date.Year == date.Year
-                                 && l.Date.Month == date.Month
-                                 && l.Date.Day == date.Day)
-                        .Select(l => l.Rate)
-                        .FirstOrDefault() ?? "",
-
-                    SurahFromFriend = s.ReviewLessons!
-                        .Where(l => l.Date.Year == date.Year
-                                 && l.Date.Month == date.Month
-                                 && l.Date.Day == date.Day)
-                        .Select(l => l.SurahFrom)
-                        .FirstOrDefault() ?? "",
-
-                    SurahToFriend = s.ReviewLessons!
-                        .Where(l => l.Date.Year == date.Year
-                                 && l.Date.Month == date.Month
-                                 && l.Date.Day == date.Day)
-                        .Select(l => l.SurahTo)
-                        .FirstOrDefault() ?? "",
-
-                    VerseFromFriend = s.ReviewLessons!
-                        .Where(l => l.Date.Year == date.Year
-                                 && l.Date.Month == date.Month
-                                 && l.Date.Day == date.Day)
-                        .Select(l => (int?)l.VerseTo)
-                        .FirstOrDefault() ?? 1,
-
-                    VerseToFriend = s.ReviewLessons!
-                        .Where(l => l.Date.Year == date.Year
-                                 && l.Date.Month == date.Month
-                                 && l.Date.Day == date.Day)
-                        .Select(l => (int?)l.VerseTo)
-                        .FirstOrDefault() ?? 1,
-
-                    PagesFriend = 0,
-
-                    RateFriend = s.ReviewLessons!
-                        .Where(l => l.Date.Year == date.Year
-                                 && l.Date.Month == date.Month
-                                 && l.Date.Day == date.Day)
-                        .Select(l => l.Rate)
-                        .FirstOrDefault() ?? "",
-
-                    Notes = s.SaveLessons!
-                        .Where(l => l.Date.Year == date.Year
-                                 && l.Date.Month == date.Month
-                                 && l.Date.Day == date.Day)
-                        .Select(l => l.Notes)
-                        .FirstOrDefault()
-                        ?? s.ReviewLessons!
-                            .Where(l => l.Date.Year == date.Year
-                                     && l.Date.Month == date.Month
-                                     && l.Date.Day == date.Day)
-                            .Select(l => l.Notes)
-                            .FirstOrDefault()
-                        ?? ""
+                    ReviewLesson = s.ReviewLessons!
+                        .Where(l => l.Date.Equals(date))
+                        .FirstOrDefault(),
                 })
                 .ToListAsync();
+
+            var result = raw.Select(s => new GetFollowStudentForDay
+            {
+                StudentId = s.Id,
+                StudentName = s.Name,
+
+                Attendance = s.DayAttendance?.Attendance ?? default,
+                Behavior = s.DayAttendance?.Behavior ?? default,
+
+                SurahFromTeacher = s.SaveLesson?.SurahFrom ?? "",
+                SurahToTeacher = s.SaveLesson?.SurahTo ?? "",
+                VerseFromTeacher = s.SaveLesson?.VerseFrom ?? 1,
+                VerseToTeacher = s.SaveLesson?.VerseTo ?? 1,
+                PagesTeacher = s.SaveLesson?.Pages ?? 0f,
+                RateTeacher = s.SaveLesson?.Rate ?? "",
+
+                SurahFromFriend = s.ReviewLesson?.SurahFrom ?? "",
+                SurahToFriend = s.ReviewLesson?.SurahTo ?? "",
+                VerseFromFriend = s.ReviewLesson?.VerseFrom ?? 1,
+                VerseToFriend = s.ReviewLesson?.VerseTo ?? 1,
+                PagesFriend = s.SaveLesson?.Pages ?? 0f,
+                RateFriend = s.ReviewLesson?.Rate ?? "",
+
+                Notes = s.SaveLesson?.Notes
+                     ?? s.ReviewLesson?.Notes
+                     ?? "",
+            }).ToList();
 
             return Ok(result);
         }
@@ -340,22 +271,18 @@ namespace Jaberah.Controllers
 
             var saveLesson = await _db.SaveLessons
                 .FirstOrDefaultAsync(x => x.StudentId == model.StudentId
-                                       && x.Date.Year == date.Year
-                                       && x.Date.Month == date.Month
-                                       && x.Date.Day == date.Day);
+                                       && x.Date.Equals(date));
 
             var reviewLesson = await _db.ReviewLessons
                 .FirstOrDefaultAsync(x => x.StudentId == model.StudentId
-                                       && x.Date.Year == date.Year
-                                       && x.Date.Month == date.Month
-                                       && x.Date.Day == date.Day);
+                                       && x.Date.Equals(date));
 
             // --- SaveLesson (WithTeacher) ---
             if (saveLesson is not null)
             {
                 saveLesson.SurahFrom = model.SurahFromTeacher ?? saveLesson.SurahFrom;
                 saveLesson.SurahTo = model.SurahToTeacher ?? saveLesson.SurahTo;
-                saveLesson.VerseFrom = model.VerseFromTeacher?.ToString() ?? saveLesson.VerseFrom;
+                saveLesson.VerseFrom = model.VerseFromTeacher ?? saveLesson.VerseFrom;
                 saveLesson.VerseTo = model.VerseToTeacher ?? saveLesson.VerseTo;
                 saveLesson.Pages = model.PagesTeacher ?? saveLesson.Pages;
                 saveLesson.Rate = model.RateTeacher ?? saveLesson.Rate;
@@ -369,7 +296,7 @@ namespace Jaberah.Controllers
                     Date = date,
                     SurahFrom = model.SurahFromTeacher ?? "",
                     SurahTo = model.SurahToTeacher ?? "",
-                    VerseFrom = model.VerseFromTeacher?.ToString() ?? "1",
+                    VerseFrom = model.VerseFromTeacher ?? 1,
                     VerseTo = model.VerseToTeacher ?? 1,
                     Rate = model.RateTeacher ?? "",
                     Pages = model.PagesTeacher ?? 0,
@@ -382,7 +309,7 @@ namespace Jaberah.Controllers
             {
                 reviewLesson.SurahFrom = model.SurahFromFriend ?? reviewLesson.SurahFrom;
                 reviewLesson.SurahTo = model.SurahToFriend ?? reviewLesson.SurahTo;
-                reviewLesson.VerseFrom = model.VerseFromFriend?.ToString() ?? reviewLesson.VerseFrom;
+                reviewLesson.VerseFrom = model.VerseFromFriend ?? reviewLesson.VerseFrom;
                 reviewLesson.VerseTo = model.VerseToFriend ?? reviewLesson.VerseTo;
                 reviewLesson.Rate = model.RateFriend ?? reviewLesson.Rate;
                 reviewLesson.Pages = model.PagesFriend ?? reviewLesson.Pages;
@@ -396,7 +323,7 @@ namespace Jaberah.Controllers
                     Date = date,
                     SurahFrom = model.SurahFromFriend ?? "",
                     SurahTo = model.SurahToFriend ?? "",
-                    VerseFrom = model.VerseFromFriend?.ToString() ?? "1",
+                    VerseFrom = model.VerseFromFriend ?? 1,
                     VerseTo = model.VerseToFriend ?? 1,
                     Rate = model.RateFriend ?? "",
                     Pages = model.PagesFriend ?? 0,
@@ -419,9 +346,7 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "لايوجد طالب" });
             var attendance = await _db.StudentAttendances
                 .FirstOrDefaultAsync(x => x.StudentId == model.StudentId
-                                       && x.Date.Year == date.Year
-                                       && x.Date.Month == date.Month
-                                       && x.Date.Day == date.Day);
+                                       && x.Date.Equals(date));
             if (attendance is not null)
             {
                 attendance.Attendance = Math.Clamp(model.Attendance ?? attendance.Attendance, 0, 1);

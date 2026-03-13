@@ -5,7 +5,7 @@
         public required DateTime Date { get; set; }
         public required string SurahFrom { get; set; }
         public required string SurahTo { get; set; }
-        public required string VerseFrom { get; set; }
+        public required int VerseFrom { get; set; }
         public required int VerseTo { get; set; }
         public required string Rate { get; set; }
         public required float Pages { get; set; }

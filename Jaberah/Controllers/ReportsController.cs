@@ -106,7 +106,7 @@ namespace Jaberah.Controllers
 
             var books =await _db.Books
                 .AsNoTracking()
-                .Where(b => b.GroupId == groupId && b.Date >= fromDate && b.Date < toDate)
+                .Where(b => b.GroupId == groupId && b.Date >= fromDate && b.Date <= toDate)
                 .Select(b => new BooksData
                 {
                     Id = b.Id,
@@ -213,12 +213,12 @@ namespace Jaberah.Controllers
                             From = new FromToData
                             {
                                 SurahName = firstSave?.SurahFrom ?? "",
-                                Verse = int.TryParse(firstSave?.VerseFrom, out var sfv) ? sfv : 0
+                                Verse = firstSave?.VerseFrom ?? 1
                             },
                             To = new FromToData
                             {
                                 SurahName = lastSave?.SurahTo ?? "",
-                                Verse = lastSave?.VerseTo ?? 0
+                                Verse = lastSave?.VerseTo ?? 1
                             },
                             Pages = savePages,
                             Rate = firstSave?.Rate ?? ""
@@ -229,7 +229,7 @@ namespace Jaberah.Controllers
                             From = new FromToData
                             {
                                 SurahName = firstReview?.SurahFrom ?? "",
-                                Verse = int.TryParse(firstReview?.VerseFrom, out var rfv) ? rfv : 0
+                                Verse = firstReview ?.VerseFrom ?? 1
                             },
                             To = new FromToData
                             {
