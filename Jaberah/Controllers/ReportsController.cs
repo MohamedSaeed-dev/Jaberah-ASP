@@ -144,7 +144,7 @@ namespace Jaberah.Controllers
 
                     // ReviewLesson (WithFriend)
                     ReviewLessons = s.ReviewLessons!
-                        .Where(l => l.Date >= fromDate && l.Date < toDate
+                        .Where(l => l.Date >= fromDate && l.Date <= toDate
                                  && !string.IsNullOrWhiteSpace(l.SurahFrom)
                                  && !string.IsNullOrWhiteSpace(l.SurahTo))
                         .OrderBy(l => l.Date)
@@ -160,17 +160,17 @@ namespace Jaberah.Controllers
                         .ToList(),
 
                     SaveCount = s.SaveLessons!
-                        .Count(l => l.Date >= fromDate && l.Date < toDate),
+                        .Count(l => l.Date >= fromDate && l.Date <= toDate),
 
                     ReviewCount = s.ReviewLessons!
-                        .Count(l => l.Date >= fromDate && l.Date < toDate),
+                        .Count(l => l.Date >= fromDate && l.Date <= toDate),
 
                     Attendance = s.StudentAttendances!
-                        .Where(a => a.Date >= fromDate && a.Date < toDate)
+                        .Where(a => a.Date >= fromDate && a.Date <= toDate)
                         .Sum(a => (double?)a.Attendance) ?? 0,
 
                     Behavior = s.StudentAttendances!
-                        .Where(a => a.Date >= fromDate && a.Date < toDate)
+                        .Where(a => a.Date >= fromDate && a.Date <= toDate)
                         .Sum(a => (double?)a.Behavior) ?? 0,
 
                     Exam = s.Exams!
@@ -344,17 +344,17 @@ namespace Jaberah.Controllers
                     s.Name,
                     GroupName = s.Group!.Name,
                     SaveCount = s.SaveLessons!
-                        .Count(l => l.Date >= fromDate && l.Date < toDate),
+                        .Count(l => l.Date >= fromDate && l.Date <= toDate),
 
                     ReviewCount = s.ReviewLessons!
-                        .Count(l => l.Date >= fromDate && l.Date < toDate),
+                        .Count(l => l.Date >= fromDate && l.Date <= toDate),
 
                     Attendance = s.StudentAttendances!
-                        .Where(a => a.Date >= fromDate && a.Date < toDate)
+                        .Where(a => a.Date >= fromDate && a.Date <= toDate)
                         .Sum(a => (double?)a.Attendance) ?? 0,
 
                     Behavior = s.StudentAttendances!
-                        .Where(a => a.Date >= fromDate && a.Date < toDate)
+                        .Where(a => a.Date >= fromDate && a.Date <= toDate)
                         .Sum(a => (double?)a.Behavior) ?? 0,
 
                     Exam = s.Exams!
