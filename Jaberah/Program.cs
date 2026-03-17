@@ -113,11 +113,11 @@ var app = builder.Build();
 
 app.UseHangfireDashboard(); // optional: view jobs at /hangfire
 
-// Schedule the job — runs every day at 11:59 PM
+// Schedule the job — runs every minute (job logic skips Fridays and no-ops when no absent teachers)
 RecurringJob.AddOrUpdate<IAttendanceJobService>(
     "mark-absent-teachers",
     job => job.MarkAbsentTeachersAsync(),
-    "59 23 * * *", // cron expression: 11:59 PM daily
+    Cron.Minutely(),
     new RecurringJobOptions
     {
         TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Arab Standard Time") // UTC+3
@@ -146,12 +146,14 @@ app.UseAuthorization();
 app.MapControllers();
 app.UseSwagger().UseSwaggerUI(sw =>
 {
-    sw.SwaggerEndpoint("/swagger/v1/swagger.json", " Jaberah API");
+    sw.SwaggerEndpoint("/swagger/v1/swagger.json", "Jaberah API");
     sw.RoutePrefix = string.Empty;
     sw.DefaultModelsExpandDepth(-1);
     sw.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
     sw.DisplayRequestDuration();
-    //sw.EnableFilter("");
+
+    // ✅ ADD THIS LINE
+    sw.ConfigObject.PersistAuthorization = true;
 });
 
 

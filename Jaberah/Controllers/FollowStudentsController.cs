@@ -248,7 +248,7 @@ namespace Jaberah.Controllers
                 SurahToFriend = s.ReviewLesson?.SurahTo ?? "",
                 VerseFromFriend = s.ReviewLesson?.VerseFrom ?? 1,
                 VerseToFriend = s.ReviewLesson?.VerseTo ?? 1,
-                PagesFriend = s.SaveLesson?.Pages ?? 0f,
+                PagesFriend = s.ReviewLesson?.Pages ?? 0f,
                 RateFriend = s.ReviewLesson?.Rate ?? "",
 
                 Notes = s.SaveLesson?.Notes

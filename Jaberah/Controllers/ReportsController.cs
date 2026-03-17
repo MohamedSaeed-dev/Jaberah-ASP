@@ -48,8 +48,9 @@ namespace Jaberah.Controllers
                         .ToList(),
 
                     Exam = s.Exams!
+                        .Where(e => e.Date >= fromDate && e.Date <= toDate)
                         .Select(e => new { e.OralExam, e.PaperExam })
-                        .FirstOrDefault(),
+                        .ToList(),
 
                     MidFinal = s.MidFinals!
                         .Where(mf => mf.FromDate == fromDate && mf.ToDate == toDate)
@@ -69,8 +70,8 @@ namespace Jaberah.Controllers
                     .GroupBy(l => new { l.Year, l.Month })
                     .Sum(monthGroup => Math.Min(monthGroup.Count() * 0.5, 10.0));
 
-                double oral = Math.Min(s.Exam?.OralExam ?? 0, 40);
-                double paper = Math.Min(s.Exam?.PaperExam ?? 0, 80);
+                double oral = Math.Min(s.Exam?.Sum(e => e.OralExam) ?? 0, 40);
+                double paper = Math.Min(s.Exam?.Sum(e => e.PaperExam) ?? 0, 80);
                 double midFinal = s.MidFinal ?? 0;
 
                 double total = (attendance + behavior + grade + oral + paper + midFinal) * 100.0 / 400.0;
@@ -174,6 +175,7 @@ namespace Jaberah.Controllers
                         .Sum(a => (double?)a.Behavior) ?? 0,
 
                     Exam = s.Exams!
+                        .Where(e => e.Date >= fromDate && e.Date <= toDate)
                         .Select(e => new { e.OralExam, e.PaperExam })
                         .FirstOrDefault()
                 })
@@ -205,7 +207,7 @@ namespace Jaberah.Controllers
 
                     return new GetMonthlyReportData
                     {
-                        FollowStudentId = s.Id,
+                        StudentId = s.Id,
                         StudentName = s.Name,
 
                         SaveData = new SaveReviewData

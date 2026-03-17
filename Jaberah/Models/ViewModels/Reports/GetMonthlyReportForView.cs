@@ -8,7 +8,7 @@
     }
     public class GetMonthlyReportData
     {
-        public int FollowStudentId { get; set; }
+        public int StudentId { get; set; }
         public string StudentName { get; set; } = string.Empty;
         public SaveReviewData SaveData { get; set; }
         public SaveReviewData ReviewData { get; set; }
