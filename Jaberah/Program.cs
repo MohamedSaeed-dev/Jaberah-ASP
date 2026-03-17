@@ -117,7 +117,7 @@ app.UseHangfireDashboard(); // optional: view jobs at /hangfire
 RecurringJob.AddOrUpdate<IAttendanceJobService>(
     "mark-absent-teachers",
     job => job.MarkAbsentTeachersAsync(),
-    "2 0 * * *", // 23:20 every day
+    "59 23 * * *", // 23:59 every day
     new RecurringJobOptions
     {
         TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Arab Standard Time")
