@@ -8,5 +8,9 @@
         public int? TeacherId { get; set; }
         public string? TeacherName { get; set; }
         public int StudentsNo { get; set; }
+
+        public TimeOnly? WindowStart { get; set; }
+        public TimeOnly? WindowEnd { get; set; }
+        public decimal? FlexibleMinutes { get; set; }
     }
 }

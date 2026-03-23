@@ -13,5 +13,8 @@ namespace Jaberah.Models.DTOs
         public string? GroupName { get; set; }
         public int? TeacherId { get; set; }
         public Period? Period { get; set; }
+        public TimeOnly? WindowStart { get; set; }
+        public TimeOnly? WindowEnd { get; set; }
+        public decimal? FlexibleMinutes { get; set; }
     }
 }

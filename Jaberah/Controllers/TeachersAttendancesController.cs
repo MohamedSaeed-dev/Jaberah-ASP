@@ -90,8 +90,6 @@ namespace Jaberah.Controllers
         [HttpPost]
         public async Task<IActionResult> UpsertTeacherAttendanceForDay([FromQuery] DateOnly date, [FromBody] UpsertTeachersAttendancesDTO model)
         {
-            Console.WriteLine(model);
-
             if (date == default)
                 return BadRequest(new { message = "ادخل تاريخ صحيح" });
 
@@ -103,6 +101,10 @@ namespace Jaberah.Controllers
             if (teacher == null)
                 return NotFound(new { message = "المعلم غير موجود" });
 
+            var group = await _db.Groups.FindAsync(model.GroupId);
+            if (group == null)
+                return NotFound(new { message = "الحلقة غير موجودة" });
+
             // Calculate status
             AttendanceStatus status;
 
@@ -112,15 +114,15 @@ namespace Jaberah.Controllers
             }
             else
             {
-                var flexibleMinutes = teacher.FlexibleMinutes ?? 0m;
+                var flexibleMinutes = group.FlexibleMinutes ?? 0m;
                 var flexible = TimeSpan.FromMinutes((double)flexibleMinutes);
 
-                var windowStart = teacher.WindowStart.HasValue
-                    ? teacher.WindowStart.Value.Add(-flexible)
+                var windowStart = group.WindowStart.HasValue
+                    ? group.WindowStart.Value.Add(-flexible)
                     : TimeOnly.MinValue;
 
-                var windowEnd = teacher.WindowEnd.HasValue
-                    ? teacher.WindowEnd.Value.Add(flexible)
+                var windowEnd = group.WindowEnd.HasValue
+                    ? group.WindowEnd.Value.Add(flexible)
                     : TimeOnly.MaxValue;
 
                 if (model.CheckInTime < windowStart)
@@ -291,13 +293,13 @@ namespace Jaberah.Controllers
                 return BadRequest(new { message = "تم تسجيل الحضور مسبقاً" });
 
             // Calculate status
-            var flexibleMinutes = teacher.FlexibleMinutes ?? 0m;
+            var flexibleMinutes = group.FlexibleMinutes ?? 0m;
             var flexible = TimeSpan.FromMinutes((double)flexibleMinutes);
 
             AttendanceStatus status;
 
-            var windowEnd = teacher.WindowEnd.HasValue
-                ? teacher.WindowEnd.Value.Add(flexible)
+            var windowEnd = group.WindowEnd.HasValue
+                ? group.WindowEnd.Value.Add(flexible)
                 : TimeOnly.MaxValue;
 
             if (now > windowEnd)

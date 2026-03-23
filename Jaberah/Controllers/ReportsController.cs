@@ -236,7 +236,7 @@ namespace Jaberah.Controllers
                             To = new FromToData
                             {
                                 SurahName = lastReview?.SurahTo ?? "",
-                                Verse = lastReview?.VerseTo ?? 0
+                                Verse = lastReview?.VerseTo ?? 1
                             },
                             Pages = reviewPages,
                             Rate = firstReview?.Rate ?? ""

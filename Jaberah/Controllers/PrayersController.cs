@@ -68,8 +68,8 @@ namespace Jaberah.Controllers
             if (!string.IsNullOrEmpty(query.Search))
                 studentQuery = studentQuery.Where(s => s.Name.Contains(query.Search));
 
-            if (query.GroupId.HasValue)
-                studentQuery = studentQuery.Where(s => s.GroupId == query.GroupId.Value);
+            if (query.GroupsId?.Count > 0)
+                studentQuery = studentQuery.Where(s => query.GroupsId.Contains(s.GroupId));
 
             var students = await studentQuery
                 .Select(s => new { s.Id, s.Name, GroupName = s.Group != null ? s.Group.Name : null })

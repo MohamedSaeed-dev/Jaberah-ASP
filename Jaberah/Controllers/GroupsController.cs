@@ -40,12 +40,15 @@ namespace Jaberah.Controllers
 
                 if (withoutTeacher) query = query.Where(x => x.Teacher == null);
 
-                groups = (await query.Select(x => new
+                groups = [.. (await query.Select(x => new
                 {
                     x.Id,
                     x.Name,
                     x.Period,
                     x.TeacherId,
+                    x.WindowStart,
+                    x.WindowEnd,
+                    x.FlexibleMinutes,
                     TeacherName = x.Teacher.Name,
                     StudentsCount = x.Students.Count,
                 }).ToListAsync())
@@ -56,8 +59,11 @@ namespace Jaberah.Controllers
                     Period = GetPeriodName((byte)x.Period),
                     TeacherId = x.TeacherId,
                     TeacherName = x.TeacherName,
-                    StudentsNo = x.StudentsCount
-                }).ToList();
+                    StudentsNo = x.StudentsCount,
+                    WindowStart = x.WindowStart,
+                    WindowEnd = x.WindowEnd,
+                    FlexibleMinutes = x.FlexibleMinutes,
+                })];
 
                 _cache.Set(cacheKey, groups, new MemoryCacheEntryOptions
                 {
@@ -208,6 +214,9 @@ namespace Jaberah.Controllers
             group.Name = !string.IsNullOrWhiteSpace(model.GroupName) ? model.GroupName : group.Name;
             group.TeacherId = model.TeacherId;
             group.Period = model.Period ?? group.Period;
+            group.WindowStart = model.WindowStart ?? group.WindowStart;
+            group.WindowEnd = model.WindowEnd ?? group.WindowEnd;
+            group.FlexibleMinutes = model.FlexibleMinutes ?? group.FlexibleMinutes;
 
             _db.Groups.Update(group);
             await _db.SaveChangesAsync();

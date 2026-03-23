@@ -5,7 +5,7 @@ namespace Jaberah.Models.DTOs
     public class QueryDayilyPrayersDTO : PaginationDTO
     {
         public required DateOnly Date { get; set; }
-        public int? GroupId { get; set; }
+        public List<int?>? GroupsId { get; set; }
         public string? Search { get; set; } = string.Empty;
     }
     public record StudentDailyUpsertDTO

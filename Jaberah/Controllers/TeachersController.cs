@@ -31,9 +31,6 @@ namespace Jaberah.Controllers
                 Id = x.Id,
                 TeacherName = x.Name,
                 PhoneNumber = x.PhoneNumber,
-                WindowStart = x.WindowStart,
-                WindowEnd = x.WindowEnd,
-                FlexibleMinutes = x.FlexibleMinutes,
                 Groups = x.Groups.Select(y => new TeacherGroupsDataForView
                 {
                     GroupId = y.Id,
@@ -217,9 +214,6 @@ namespace Jaberah.Controllers
 
             teacher.Name = string.IsNullOrEmpty(model.TeacherName) ? teacher.Name.Trim() : model.TeacherName.Trim();
             teacher.PhoneNumber = string.IsNullOrEmpty(model.PhoneNumber) ? teacher.PhoneNumber : model.PhoneNumber;
-            teacher.WindowStart = model.WindowStart ?? teacher.WindowStart;
-            teacher.WindowEnd = model.WindowEnd ?? teacher.WindowEnd;
-            teacher.FlexibleMinutes = model.FlexibleMinutes ?? teacher.FlexibleMinutes;
             List<Group>? newGroups = [];
             if (model.GroupsId != null && model.GroupsId.Count > 0)
             {
