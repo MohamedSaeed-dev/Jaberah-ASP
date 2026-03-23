@@ -1,0 +1,92 @@
+[
+  {
+    "Id": 2,
+    "GroupName": "عمر ابن الخطاب",
+    "Period": 2,
+    "TeacherId": 5,
+    "CreatedAt": "1447-01-01 23:29:56.2960000",
+    "DeletedAt": null,
+    "UpdatedAt": "2026-02-04 10:14:43.2390000"
+  },
+  {
+    "Id": 3,
+    "GroupName": "عثمان بن عفان",
+    "Period": 2,
+    "TeacherId": 15,
+    "CreatedAt": "1447-01-01 23:30:16.2020000",
+    "DeletedAt": null,
+    "UpdatedAt": "2025-09-27 16:04:52.5020000"
+  },
+  {
+    "Id": 4,
+    "GroupName": "علي بن أبي طالب",
+    "Period": 2,
+    "TeacherId": 8,
+    "CreatedAt": "1447-01-01 23:31:00.6710000",
+    "DeletedAt": null,
+    "UpdatedAt": "2025-10-02 22:53:54.9790000"
+  },
+  {
+    "Id": 5,
+    "GroupName": "الزبير بن العوام",
+    "Period": 2,
+    "TeacherId": 9,
+    "CreatedAt": "1447-01-01 23:32:16.0470000",
+    "DeletedAt": null,
+    "UpdatedAt": "2025-09-14 17:06:05.9830000"
+  },
+  {
+    "Id": 6,
+    "GroupName": "أبوعبيدة ابن الجراح",
+    "Period": 2,
+    "TeacherId": 13,
+    "CreatedAt": "1447-01-01 23:32:37.9280000",
+    "DeletedAt": null,
+    "UpdatedAt": "1447-01-30 22:33:55.0860000"
+  },
+  {
+    "Id": 7,
+    "GroupName": "سعد بن أبي وقاص",
+    "Period": 2,
+    "TeacherId": 16,
+    "CreatedAt": "1447-01-01 23:33:01.0640000",
+    "DeletedAt": null,
+    "UpdatedAt": "2025-09-14 17:06:22.7520000"
+  },
+  {
+    "Id": 8,
+    "GroupName": "عبدالرحمن بن عوف",
+    "Period": 2,
+    "TeacherId": 12,
+    "CreatedAt": "1447-01-01 23:33:25.2750000",
+    "DeletedAt": null,
+    "UpdatedAt": "2025-10-02 22:54:11.0120000"
+  },
+  {
+    "Id": 9,
+    "GroupName": "سعيد بن زيد",
+    "Period": 2,
+    "TeacherId": 7,
+    "CreatedAt": "1447-01-01 23:34:23.3830000",
+    "DeletedAt": null,
+    "UpdatedAt": "2025-09-29 18:49:17.2770000"
+  },
+  {
+    "Id": 10,
+    "GroupName": "أبوبكر الصديق",
+    "Period": 2,
+    "TeacherId": 2,
+    "CreatedAt": "1447-01-20 19:27:27.4620000",
+    "DeletedAt": null,
+    "UpdatedAt": "2025-09-10 12:37:09.4280000"
+  },
+  {
+    "Id": 11,
+    "GroupName": "طلحة بن عبيدالله",
+    "Period": 2,
+    "TeacherId": 14,
+    "CreatedAt": "2025-09-08 19:14:20.0370000",
+    "DeletedAt": null,
+    "UpdatedAt": "2025-09-22 22:49:13.3350000"
+  }
+]

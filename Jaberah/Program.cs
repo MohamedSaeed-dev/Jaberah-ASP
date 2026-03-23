@@ -111,6 +111,8 @@ builder.Services.AddScoped<IAttendanceJobService, AttendanceJobService>();
 
 var app = builder.Build();
 
+//await DataSeeder.SeedAsync(app.Services);
+
 app.UseHangfireDashboard(); // optional: view jobs at /hangfire
 
 // Schedule the job — runs every minute (job logic skips Fridays and no-ops when no absent teachers)

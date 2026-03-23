@@ -224,7 +224,6 @@ namespace Jaberah.Models.MyDbContext
                 entity.Property(s => s.StudyLevel).HasMaxLength(100);
                 entity.Property(s => s.Notes).HasMaxLength(1000);
 
-                entity.HasIndex(s => s.PhoneNumber).IsUnique().HasDatabaseName("UQ_Students_PhoneNumber");
                 entity.HasIndex(s => s.Name).IsUnique().HasDatabaseName("UQ_Students_Name");
                 entity.HasIndex(s => s.GroupId).HasDatabaseName("IX_Students_GroupId");
 

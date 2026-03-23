@@ -1,0 +1,122 @@
+[
+  {
+    "Id": 2,
+    "TeacherName": "مدرسة ابن الوليد",
+    "PhoneNumber": "777652443",
+    "Password": "$2a$11$rjzELJDfE/M7ta4ouCrksejYUUS6r..JREIGSMHNiwgfM8qf9SU4m",
+    "Role": 1,
+    "FCMToken": "elsqyT8TSbSIIt44CcoSlj:APA91bGtNretTctPlU6SBY72HS52kpmKjSVWnpO1ahH3ultPUFvNzz49R14aakS_-DwX4nDmzIpDgmgk-SKo2TKv8DzhMuIgYMf-ja-HuoLgmU5CKDSnPPE",
+    "LastLogin": "2026-03-12 14:03:01.4352258",
+    "CreatedAt": "1447-01-01 19:57:15.0000000",
+    "DeletedAt": null,
+    "UpdatedAt": "2026-03-12 16:03:01.4370000"
+  },
+  {
+    "Id": 5,
+    "TeacherName": "عمر ابن الخطاب",
+    "PhoneNumber": "777652443",
+    "Password": "$2a$11$Qj22qnx2aEvdTFh2YBOhGeefu0ueKchnibATQpQlukHd599pfWzCW",
+    "Role": 2,
+    "FCMToken": "dUL4nuEASFGnI9-L-YZFdT:APA91bHqirafvPpRlZtxiqnQChwtsKI-Mwos3LIL0rEV3x4WK5Obl7SKiYG8r-LYRhkWE6UJg6tXhuqnzyXUT1mYf2F5rJPNe_ZN4xyC__u1LMtbaeIlCos",
+    "LastLogin": "2026-03-15 21:02:41.0768535",
+    "CreatedAt": "1447-01-02 19:41:51.0080000",
+    "DeletedAt": null,
+    "UpdatedAt": "2026-03-15 23:02:41.0760000"
+  },
+  {
+    "Id": 7,
+    "TeacherName": "سعيد ابن زيد",
+    "PhoneNumber": "778857964",
+    "Password": "$2a$11$Jup61AhQRklBEXGX0fIX6elWG3JBXgkhbpsWYfStQ0Pmp6sRuOvcy",
+    "Role": 2,
+    "FCMToken": "fOf7wlHaTDSPNv2qV84pJ0:APA91bFYXyUlPtu55p1YHGVchvcp2cGwXm9EXLIwoRObIZXg6f6zi5slx3sPin_6I3QWfJGsE8m8b-aLYCQ1BW4gkBoC--3lQPr9CLybvC1Zo5Hvcuotb-M",
+    "LastLogin": "2026-02-24 15:20:17.7480130",
+    "CreatedAt": "1447-01-02 20:27:45.1600000",
+    "DeletedAt": null,
+    "UpdatedAt": "2026-02-24 17:20:17.7480000"
+  },
+  {
+    "Id": 8,
+    "TeacherName": "علي ابن ابي طالب",
+    "PhoneNumber": "778936958",
+    "Password": "$2a$11$rkjMXiVVwjxFCey6ouvqpuP39EUqPrUpr1GgRZePiIfGm0Tkc12LG",
+    "Role": 2,
+    "FCMToken": "eVdx9Cd3TT2JZ-tw8fydg4:APA91bHSlRNDoYezUzRZeZZQNdXTlaWeWCJ17r0ubFxqDDquuxRZZZsfGmEEatHOru6_OzUOVuUqYDaMAhYRTSBwYKj8ia-hPMuQiftFqDoJWGbtUWL0j-M",
+    "LastLogin": "2026-03-09 10:48:15.2531200",
+    "CreatedAt": "1447-01-02 20:47:12.2180000",
+    "DeletedAt": null,
+    "UpdatedAt": "2026-03-09 12:48:15.2550000"
+  },
+  {
+    "Id": 9,
+    "TeacherName": "الزبير ابن العوام",
+    "PhoneNumber": "773946176",
+    "Password": "$2a$11$J0dgxLmbShQP3AQZDsH30e.Yb/z5i/AIdeqdfWxkYgCMx45SlJg/C",
+    "Role": 2,
+    "FCMToken": "cUBEwyDDTO6yVlGrk3tlC-:APA91bGwcYUcsUknYCKDCrKRGUI7aSqE0bvPJWiJ5WJWdHD9dI_R2XhLFh6PgmHU4n8TUK9zadeCeibEd0S9qvPfzZzS6smowUY04SjWxi05DThrR4nmVLo",
+    "LastLogin": "2026-02-11 09:32:19.6432992",
+    "CreatedAt": "1447-01-03 18:53:59.8750000",
+    "DeletedAt": null,
+    "UpdatedAt": "2026-02-11 11:32:19.6450000"
+  },
+  {
+    "Id": 12,
+    "TeacherName": "عبدالرحمن ابن عوف",
+    "PhoneNumber": "773820360",
+    "Password": "$2a$11$B1ypUJ0ttXRdnbxOzoBzHOH4OM.Np96bAlPtMLGAE350wiWnhky1K",
+    "Role": 2,
+    "FCMToken": "d-UteR4bQ5eLDEIoHxf-8c:APA91bGPFiU_3jyaMZV_XzDefMa58MKoNTl9Bk7EEN_EDBaLz-xtM27fkrH6CifypZvq0EnzE0mOanaAfJ8evZHipejTwco5x8vU52nGOmwUm4S_bEdsmpI",
+    "LastLogin": "2026-02-09 17:13:08.8651775",
+    "CreatedAt": "1447-01-05 16:50:51.7900000",
+    "DeletedAt": null,
+    "UpdatedAt": "2026-02-09 19:13:08.8650000"
+  },
+  {
+    "Id": 13,
+    "TeacherName": "أبوعبيدة ابن الجراح",
+    "PhoneNumber": "773083538",
+    "Password": "$2a$11$H7Tg5RqXgi0gagvpl0gQUu1xWP3FFnU.ZfkvV2IkUxJBhe8UWaK/y",
+    "Role": 2,
+    "FCMToken": "ddEsLXFkTw6eLaRUiQ_Coe:APA91bHUsdEJuIJkq9zfs0adX-ktEmfxYJDIj8OT_zVpxy3mif1L6PF-Mrd07awGMjrFWiLiSkKvy-Xa-NqRg7899uAVOkZDajCj2hVLpFreU3omxfthq5o",
+    "LastLogin": "2026-02-11 16:39:24.3611253",
+    "CreatedAt": "1447-01-07 18:10:08.7370000",
+    "DeletedAt": null,
+    "UpdatedAt": "2026-02-18 13:05:18.6250000"
+  },
+  {
+    "Id": 14,
+    "TeacherName": "طلحة ابن عبيدالله",
+    "PhoneNumber": "772551952",
+    "Password": "$2a$11$NQYrvff9W6hfDUDeMVG4fu9LImmKtEXKVysRWGkzwzcWziK.650B6",
+    "Role": 2,
+    "FCMToken": "dtPQDNQRSr6R3ucm-dMnRN:APA91bHz-lpb35JAAyR3MTzrFNLrLuA8XYafo8JhQE9vOzJ4ATS7mdvUtojLKkHfjWC1HvPuQd70_C_bpmu-jPVB7b1XS3tYfT90licf0Bsm4FD7QUD3feA",
+    "LastLogin": "2026-02-17 10:51:44.3346891",
+    "CreatedAt": "2025-09-08 19:13:04.1530000",
+    "DeletedAt": null,
+    "UpdatedAt": "2026-02-17 12:51:44.3360000"
+  },
+  {
+    "Id": 15,
+    "TeacherName": "عثمان بن عفان",
+    "PhoneNumber": "770227388",
+    "Password": "$2a$11$MSC4/b/j4YKC68mEfv8lQu/ftwqMpwoMl6H7d1ktgkQmMm.1VO6tG",
+    "Role": 2,
+    "FCMToken": "ddEsLXFkTw6eLaRUiQ_Coe:APA91bHUsdEJuIJkq9zfs0adX-ktEmfxYJDIj8OT_zVpxy3mif1L6PF-Mrd07awGMjrFWiLiSkKvy-Xa-NqRg7899uAVOkZDajCj2hVLpFreU3omxfthq5o",
+    "LastLogin": "2026-03-14 12:45:30.8349072",
+    "CreatedAt": "2025-09-14 13:46:07.2430000",
+    "DeletedAt": null,
+    "UpdatedAt": "2026-03-14 14:45:30.8370000"
+  },
+  {
+    "Id": 16,
+    "TeacherName": "سعد ابن ابي وقاص",
+    "PhoneNumber": "778936958",
+    "Password": "$2a$11$AoLzwIiI8oSaITJjIK36xuyQZtCXnJw9mnlJPqwkmDeiVnOaG2fM.",
+    "Role": 2,
+    "FCMToken": "eVdx9Cd3TT2JZ-tw8fydg4:APA91bHSlRNDoYezUzRZeZZQNdXTlaWeWCJ17r0ubFxqDDquuxRZZZsfGmEEatHOru6_OzUOVuUqYDaMAhYRTSBwYKj8ia-hPMuQiftFqDoJWGbtUWL0j-M",
+    "LastLogin": "2026-03-02 00:25:49.3935787",
+    "CreatedAt": "2025-09-14 13:53:08.2190000",
+    "DeletedAt": null,
+    "UpdatedAt": "2026-03-02 02:47:17.7590000"
+  }
+]
