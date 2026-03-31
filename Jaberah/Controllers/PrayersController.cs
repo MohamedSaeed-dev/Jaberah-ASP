@@ -63,7 +63,7 @@ namespace Jaberah.Controllers
             var prayerIds = prayers.Select(p => p.Id).ToList();
 
             // Build student query with filters
-            var studentQuery = _db.Students.AsNoTracking().Skip((query.PageNumber - 1) * query.PageSize).Take(query.PageSize);
+            var studentQuery = _db.Students.AsNoTracking();
 
             if (!string.IsNullOrEmpty(query.Search))
                 studentQuery = studentQuery.Where(s => s.Name.Contains(query.Search));
@@ -73,9 +73,9 @@ namespace Jaberah.Controllers
 
             var students = await studentQuery
                 .Select(s => new { s.Id, s.Name, GroupName = s.Group != null ? s.Group.Name : null })
-                .ToListAsync();
+                .ToPagedListAsync(query.PageNumber, query.PageSize);
 
-            var studentIds = students.Select(s => s.Id).ToList();
+            var studentIds = students.Data.Select(s => s.Id).ToList();
 
             if (studentIds.Count == 0)
                 return Ok(Enumerable.Empty<StudentDailyPrayerDto>());
@@ -95,12 +95,14 @@ namespace Jaberah.Controllers
                 })
                 .ToDictionaryAsync(x => (x.StudentId, x.PrayerId));
 
-            var result = students.Select(student => new StudentDailyPrayerDto
+            var result = new
             {
-                StudentId = student.Id,
-                StudentName = student.Name,
-                GroupName = student.GroupName,
-                Prayers = [.. prayers.Select(prayer =>
+                Data = students.Data.Select(student => new StudentDailyPrayerDto
+                {
+                    StudentId = student.Id,
+                    StudentName = student.Name,
+                    GroupName = student.GroupName,
+                    Prayers = [.. prayers.Select(prayer =>
                 {
                     attendanceLookup.TryGetValue((student.Id, prayer.Id), out var attendance);
                     return new PrayerStatusDto
@@ -114,7 +116,12 @@ namespace Jaberah.Controllers
                         }
                     };
                 })]
-            }).ToList();
+                }).ToList(),
+                students.TotalCount,
+                students.TotalPages,
+                students.HasNext,
+                students.HasPrevious
+            };
 
             return Ok(result);
         }
