@@ -164,6 +164,7 @@ app.UseSwagger().UseSwaggerUI(sw =>
 
     // ✅ ADD THIS LINE
     sw.ConfigObject.PersistAuthorization = true;
+    sw.ConfigObject.AdditionalItems["persistAuthorization"] = true;
 });
 
 

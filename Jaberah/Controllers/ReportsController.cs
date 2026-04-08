@@ -98,32 +98,39 @@ namespace Jaberah.Controllers
         [HttpGet("monthly-report")]
         public async Task<IActionResult> GetMonthlyReport([FromQuery] int groupId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate, [FromQuery] int take = 5)
         {
+            Console.WriteLine(groupId);
+            Console.WriteLine(fromDate);
+            Console.WriteLine(toDate);
+            Console.WriteLine(take);
             if (fromDate == default || toDate == default)
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
 
-            var books =await _db.Books
-                .AsNoTracking()
-                .Where(b => b.GroupId == groupId && b.Date >= fromDate && b.Date <= toDate)
-                .Select(b => new BooksData
-                {
-                    Id = b.Id,
-                    Title = b.Title,
-                    Date = b.Date,
-                    From = b.From,
-                    To = b.To
-                })
-                .ToListAsync();
 
-            var studentsQb = _db.Students.AsNoTracking().Take(take).AsQueryable();
+            List<BooksData> books = [];
+
+            var studentsQb = _db.Students.AsNoTracking().AsQueryable();
             if(!groupId.Equals(default))
             {
                 if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
                     return BadRequest(new { message = "لاتوجد حلقة" });
 
-                studentsQb = studentsQb.Where(s => s.GroupId == groupId);
+                studentsQb = studentsQb.Where(s => s.GroupId == groupId).AsQueryable();
+                books = await _db.Books
+                    .AsNoTracking()
+                    .Where(b => b.GroupId == groupId && b.Date >= fromDate && b.Date <= toDate)
+                    .Select(b => new BooksData
+                    {
+                        Id = b.Id,
+                        Title = b.Title,
+                        Date = b.Date,
+                        From = b.From,
+                        To = b.To
+                    })
+                    .ToListAsync();
             }
 
             var students = await studentsQb
+                .Include(s => s.Group)
                 .Select(s => new
                 {
                     s.Id,
@@ -254,7 +261,8 @@ namespace Jaberah.Controllers
                         Total = total
                     };
                 })
-                .OrderByDescending(x => x.Total)]
+                .OrderByDescending(x => x.Total)
+                .Take(take)]
             };
 
             return Ok(report);
