@@ -96,12 +96,8 @@ namespace Jaberah.Controllers
         }
 
         [HttpGet("monthly-report")]
-        public async Task<IActionResult> GetMonthlyReport([FromQuery] int groupId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
+        public async Task<IActionResult> GetMonthlyReport([FromQuery] int groupId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate, [FromQuery] int take = 5)
         {
-            if (groupId <= 0)
-                return BadRequest(new { message = "ادخل id صحيح" });
-            if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
-                return BadRequest(new { message = "لاتوجد حلقة" });
             if (fromDate == default || toDate == default)
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
 
@@ -118,14 +114,21 @@ namespace Jaberah.Controllers
                 })
                 .ToListAsync();
 
-            var students = await _db.Students
-                .AsNoTracking()
-                .Where(s => s.GroupId == groupId)
+            var studentsQb = _db.Students.AsNoTracking().Take(take).AsQueryable();
+            if(!groupId.Equals(default))
+            {
+                if (!await _db.Groups.AnyAsync(x => x.Id == groupId))
+                    return BadRequest(new { message = "لاتوجد حلقة" });
+
+                studentsQb = studentsQb.Where(s => s.GroupId == groupId);
+            }
+
+            var students = await studentsQb
                 .Select(s => new
                 {
                     s.Id,
                     s.Name,
-
+                    GroupName = s.Group.Name,
                     // SaveLesson (WithTeacher)
                     SaveLessons = s.SaveLessons!
                         .Where(l => l.Date >= fromDate && l.Date <= toDate
@@ -209,6 +212,7 @@ namespace Jaberah.Controllers
                     {
                         StudentId = s.Id,
                         StudentName = s.Name,
+                        GroupName = s.GroupName,
 
                         SaveData = new SaveReviewData
                         {
@@ -222,7 +226,7 @@ namespace Jaberah.Controllers
                                 SurahName = lastSave?.SurahTo ?? "",
                                 Verse = lastSave?.VerseTo ?? 1
                             },
-                            Pages = savePages,
+                            Pages = Math.Round(savePages, 2),
                             Rate = firstSave?.Rate ?? ""
                         },
 
@@ -238,7 +242,7 @@ namespace Jaberah.Controllers
                                 SurahName = lastReview?.SurahTo ?? "",
                                 Verse = lastReview?.VerseTo ?? 1
                             },
-                            Pages = reviewPages,
+                            Pages = Math.Round(reviewPages, 2),
                             Rate = firstReview?.Rate ?? ""
                         },
                         SaveGrade = Math.Round(saveGrade, 2),

@@ -170,13 +170,11 @@ namespace Jaberah.Controllers
 
             if (date.Equals(default)) return BadRequest(new { message = "ادخل تاريخ صحيح" });
 
-            var prayersPerDay = await _db.Prayers.AsNoTracking().CountAsync();
-            var totalPossible = daysInMonth * prayersPerDay;
+            var prayersPerDay = await _db.Prayers.AsNoTracking().ToListAsync();
+            var totalPossibleRakats = daysInMonth * prayersPerDay.Sum(p => p.DefaultRakats);
 
             var start = date;
             var end = start.AddDays(daysInMonth);
-            Console.WriteLine(start);
-            Console.WriteLine(end);
 
             var studentsQuery = _db.Students.AsNoTracking();
 
@@ -201,7 +199,7 @@ namespace Jaberah.Controllers
 
             var report = new PrayersMonthlyReportDTO
             {
-                TotalPossiblePrayersPerStudent = totalPossible,
+                TotalPossibleRakatsPerStudent = totalPossibleRakats,
             };
 
             var studentStats = new List<StudentPrayerMonthlyStatsDTO>();
@@ -213,24 +211,25 @@ namespace Jaberah.Controllers
 
                 var totalPrayed = studentAttendances.Count(p => p.RakatsCount > 0);
                 var totalGroup = studentAttendances.Count(a => a.IsInGroup);
+                var totalPrayedRakats = studentAttendances.Sum(p => p.RakatsCount);
 
-                var missedPrayers = totalPossible - totalPrayed;
+                var missedPrayers = totalPossibleRakats - totalPrayed;
 
                 var daysGrouped = studentAttendances
                     .GroupBy(a => a.PrayerDate)
                     .ToDictionary(g => g.Key, g => g.Count());
 
-                var totalPercentage = totalPossible == 0
+                var totalPercentage = totalPossibleRakats == 0
                     ? 0
-                    : Math.Round((double)totalPrayed * 100 / totalPossible, 2);
+                    : Math.Round((double)totalPrayedRakats * 100 / totalPossibleRakats, 2);
 
-                var groupPercentage = totalPossible == 0
+                var groupPercentage = totalPossibleRakats == 0
                     ? 0
-                    : Math.Round((double)totalGroup * 100 / totalPossible, 2);
+                    : Math.Round((double)totalGroup * 100 / totalPossibleRakats, 2);
 
-                var missedPercentage = totalPossible == 0
+                var missedPercentage = totalPossibleRakats == 0
                     ? 0
-                    : Math.Round((double)missedPrayers * 100 / totalPossible, 2);
+                    : Math.Round((double)missedPrayers * 100 / totalPossibleRakats, 2);
 
                 studentStats.Add(new StudentPrayerMonthlyStatsDTO
                 {
@@ -238,10 +237,11 @@ namespace Jaberah.Controllers
                     StudentName = student.Name,
                     GroupName = student.GroupName,
                     TotalPrayed = totalPrayed,
+                    TotalPrayedRakats = totalPrayedRakats,
                     TotalPrayedPercentage = totalPercentage,
                     TotalGroupPrayed = totalGroup,
                     GroupPercentage = groupPercentage,
-                    MissedPrayers = missedPrayers, 
+                    MissedPrayers = missedPrayers,
                     MissedPercentage = missedPercentage,
                 });
             }
@@ -254,7 +254,7 @@ namespace Jaberah.Controllers
                     ? 0
                     : Math.Round(studentStats.Average(s => s.GroupPercentage), 2);
 
-            var totalPossibleAllStudents = totalPossible * studentStats.Count;
+            var totalPossibleAllStudents = totalPossibleRakats * studentStats.Count;
 
             report.AverageCommitmentPercentage =
                 studentStats.Count == 0

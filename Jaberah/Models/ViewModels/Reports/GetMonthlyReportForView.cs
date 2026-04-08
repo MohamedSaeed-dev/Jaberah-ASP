@@ -10,6 +10,7 @@
     {
         public int StudentId { get; set; }
         public string StudentName { get; set; } = string.Empty;
+        public string GroupName { get; set; }
         public SaveReviewData SaveData { get; set; }
         public SaveReviewData ReviewData { get; set; }
         public double SaveGrade { get; set; }

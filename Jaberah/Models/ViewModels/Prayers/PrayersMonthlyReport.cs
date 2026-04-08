@@ -2,7 +2,7 @@
 {
     public class PrayersMonthlyReportDTO
     {
-        public int TotalPossiblePrayersPerStudent { get; set; }
+        public int TotalPossibleRakatsPerStudent { get; set; }
 
         public double AverageCommitmentPercentage { get; set; }
 
@@ -15,6 +15,7 @@
         public string StudentName { get; set; } = default!;
         public string? GroupName { get; set; }
         public int TotalPrayed { get; set; }
+        public int TotalPrayedRakats { get; set; }
         public double TotalPrayedPercentage { get; set; }
 
         public int TotalGroupPrayed { get; set; }
