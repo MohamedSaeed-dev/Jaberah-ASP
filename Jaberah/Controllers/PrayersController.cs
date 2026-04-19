@@ -246,7 +246,7 @@ namespace Jaberah.Controllers
                 });
             }
 
-            report.Students = [.. studentStats.OrderByDescending(s => s.GroupPercentage)];
+            report.Students = [.. studentStats.OrderBy(s => s.MissedPercentage)];
 
 
             report.AverageCommitmentPercentage =

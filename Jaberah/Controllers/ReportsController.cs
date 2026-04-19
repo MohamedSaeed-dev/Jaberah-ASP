@@ -96,12 +96,8 @@ namespace Jaberah.Controllers
         }
 
         [HttpGet("monthly-report")]
-        public async Task<IActionResult> GetMonthlyReport([FromQuery] int groupId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate, [FromQuery] int take = 5)
+        public async Task<IActionResult> GetMonthlyReport([FromQuery] int groupId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate, [FromQuery] int? take)
         {
-            Console.WriteLine(groupId);
-            Console.WriteLine(fromDate);
-            Console.WriteLine(toDate);
-            Console.WriteLine(take);
             if (fromDate == default || toDate == default)
                 return BadRequest(new { message = "ادخل سنة وشهر صحيح" });
 
@@ -262,7 +258,7 @@ namespace Jaberah.Controllers
                     };
                 })
                 .OrderByDescending(x => x.Total)
-                .Take(take)]
+                .Take(take ?? int.MaxValue)]
             };
 
             return Ok(report);
