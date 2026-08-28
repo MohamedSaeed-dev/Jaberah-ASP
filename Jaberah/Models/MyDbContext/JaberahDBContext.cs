@@ -28,6 +28,8 @@ namespace Jaberah.Models.MyDbContext
         public DbSet<Book> Books { get; set; }
         public DbSet<Prayer> Prayers { get; set; }
         public DbSet<StudentPrayerAttendance> StudentPrayerAttendances { get; set; }
+        public DbSet<CleaningTask> CleaningTasks { get; set; }
+        public DbSet<CleaningLog> CleaningLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -392,6 +394,80 @@ namespace Jaberah.Models.MyDbContext
                 builder.HasOne(x => x.Prayer)
                     .WithMany(x => x.Attendances)
                     .HasForeignKey(x => x.PrayerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<CleaningTask>(builder =>
+            {
+                builder.ToTable("CleaningTasks");
+
+                builder.HasKey(x => x.Id);
+
+                builder.Property(x => x.NameAr)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                builder.Property(x => x.NameEn)
+                    .HasMaxLength(100);
+
+                builder.Property(x => x.DisplayOrder)
+                    .IsRequired();
+
+                builder.Property(x => x.IsActive)
+                    .IsRequired()
+                    .HasDefaultValue(true);
+
+                builder.HasIndex(x => x.NameAr)
+                    .IsUnique()
+                    .HasDatabaseName("UQ_CleaningTasks_NameAr");
+
+                builder.HasData(
+                    new CleaningTask { Id = 1, NameAr = "الممر", NameEn = "Hallway", DisplayOrder = 1, IsActive = true },
+                    new CleaningTask { Id = 2, NameAr = "الدرج", NameEn = "Stairs", DisplayOrder = 2, IsActive = true },
+                    new CleaningTask { Id = 3, NameAr = "الصف", NameEn = "Class", DisplayOrder = 3, IsActive = true },
+                    new CleaningTask { Id = 4, NameAr = "الصالة", NameEn = "Hall", DisplayOrder = 4, IsActive = true }
+                );
+            });
+
+            modelBuilder.Entity<CleaningLog>(builder =>
+            {
+                builder.ToTable("CleaningLogs");
+
+                builder.HasKey(x => x.Id);
+
+                builder.Property(x => x.Date)
+                    .HasColumnType("date")
+                    .IsRequired();
+
+                builder.Property(x => x.IsCompleted)
+                    .IsRequired()
+                    .HasDefaultValue(false);
+
+                builder.Property(x => x.Notes)
+                    .HasMaxLength(500);
+
+                builder.Property(x => x.CreatedAt)
+                    .HasDefaultValueSql("SYSDATETIME()");
+
+                // المهمة الواحدة لطالب واحد فقط في اليوم على مستوى المسجد كامل.
+                // الفلتر ضروري لأن الكيان soft-delete، وإلا فشلت إعادة الإسناد بعد الإلغاء.
+                builder.HasIndex(x => new { x.Date, x.CleaningTaskId })
+                    .IsUnique()
+                    .HasFilter("[DeletedAt] IS NULL")
+                    .HasDatabaseName("UQ_CleaningLogs_Date_CleaningTaskId");
+
+                // طالب واحد قد يحمل أكثر من مهمة في اليوم — فهرس غير فريد للبحث فقط.
+                builder.HasIndex(x => new { x.Date, x.StudentId })
+                    .HasDatabaseName("IX_CleaningLogs_Date_StudentId");
+
+                builder.HasOne(x => x.Student)
+                    .WithMany(x => x.CleaningLogs)
+                    .HasForeignKey(x => x.StudentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                builder.HasOne(x => x.CleaningTask)
+                    .WithMany(x => x.Logs)
+                    .HasForeignKey(x => x.CleaningTaskId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
         }

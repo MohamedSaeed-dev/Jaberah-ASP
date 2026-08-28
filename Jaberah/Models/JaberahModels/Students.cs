@@ -18,5 +18,6 @@
         public ICollection<Exam>? Exams { get; set; }
         public ICollection<PartialExam>? PartialExams { get; set; }
         public ICollection<StudentPrayerAttendance> Attendances { get; set; } = [];
+        public ICollection<CleaningLog> CleaningLogs { get; set; } = [];
     }
 }
