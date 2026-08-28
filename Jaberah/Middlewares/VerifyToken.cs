@@ -1,5 +1,4 @@
-﻿using Jaberah.Models.JaberahModels;
-using Jaberah.Models.MyDbContext;
+﻿using Jaberah.Models.MyDbContext;
 using Jaberah.Models.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -14,7 +13,8 @@ namespace Jaberah.Middlewares
     public class VerifyTokenAttribute(TokenHelper token) : ActionFilterAttribute
     {
         private readonly TokenHelper _token = token;
-        public override void OnActionExecuting(ActionExecutingContext context)
+
+        public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
             var authHeader = context.HttpContext.Request.Headers.Authorization.ToString();
 
@@ -24,23 +24,28 @@ namespace Jaberah.Middlewares
                 return;
             }
 
-            var scheme = authHeader.Split(" ")[0];
-            var token = scheme.ToLower() == "bearer" ? authHeader.Split(" ")[1] : null;
+            var parts = authHeader.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var token = parts.Length == 2 && parts[0].Equals("bearer", StringComparison.OrdinalIgnoreCase)
+                ? parts[1]
+                : null;
+
             if (token == null)
             {
                 context.Result = new UnauthorizedResult();
                 return;
             }
-            var user = _token.VerifyToken(token);
+
+            var user = await _token.VerifyToken(token);
 
             if (user == null)
             {
                 context.Result = new ForbidResult();
                 return;
             }
+
             context.HttpContext.Items["User"] = user;
 
-            base.OnActionExecuting(context);
+            await next();
         }
 
     }
@@ -84,11 +89,15 @@ namespace Jaberah.Middlewares
 
                 var jwtToken = (JwtSecurityToken)verifiedToken;
                 var id = jwtToken.Claims.FirstOrDefault(x => x.Type == "nameid")?.Value; ;
-                if (string.IsNullOrEmpty(id))
+                if (string.IsNullOrEmpty(id) || !int.TryParse(id, out var teacherId))
                 {
                     return null;
                 }
-                return await _db.Teachers.Select(x => new UserViewModel { Id = x.Id, Name = x.Name, PhoneNumber = x.PhoneNumber, Role = x.Role.ToString() }).FirstOrDefaultAsync(x => x.Id == int.Parse(id));
+                return await _db.Teachers
+                    .AsNoTracking()
+                    .Where(x => x.Id == teacherId)
+                    .Select(x => new UserViewModel { Id = x.Id, Name = x.Name, PhoneNumber = x.PhoneNumber, Role = x.Role.ToString() })
+                    .FirstOrDefaultAsync();
             }
             catch
             {
