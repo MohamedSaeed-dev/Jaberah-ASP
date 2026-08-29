@@ -30,11 +30,13 @@ public class DropboxService(HttpClient httpClient, IConfiguration configuration)
         return doc.RootElement.GetProperty("access_token").GetString();
     }
 
-    public async Task UploadFileAsync(string accessToken, string filePath, byte[] fileContent)
+    // Stream لا byte[]: ملف الـ APK قد يبلغ عشرات الميغابايتات، وتحميله كاملًا
+    // في الذاكرة لكل طلب ناقل استنزاف للخادم.
+    public async Task UploadFileAsync(string accessToken, string filePath, Stream fileContent)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "https://content.dropboxapi.com/2/files/upload")
         {
-            Content = new ByteArrayContent(fileContent)
+            Content = new StreamContent(fileContent)
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         request.Headers.Add("Dropbox-API-Arg", JsonSerializer.Serialize(new { path = filePath, mode = "overwrite" }));

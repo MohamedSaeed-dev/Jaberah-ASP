@@ -1,4 +1,4 @@
-using FirebaseAdmin;
+﻿using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
 using Hangfire;
 using Jaberah.Helpers;
@@ -25,6 +25,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<JaberahDBContext>(x => x.UseSqlServer(builder.Configuration.GetConnectionString("DB")));
 builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddScoped<VerifyTokenAttribute>();
+builder.Services.AddScoped<RequireDeployKeyAttribute>();
 builder.Services.AddScoped<TokenHelper>();
 builder.Services.AddScoped<DropboxService>();
 builder.Services.AddScoped<FirebaseService>();
@@ -113,7 +114,6 @@ var app = builder.Build();
 
 //await DataSeeder.SeedAsync(app.Services);
 
-app.UseHangfireDashboard(); // optional: view jobs at /hangfire
 
 // Schedule the job — runs every minute (job logic skips Fridays and no-ops when no absent teachers)
 RecurringJob.AddOrUpdate<IAttendanceJobService>(

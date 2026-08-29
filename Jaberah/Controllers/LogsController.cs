@@ -1,8 +1,12 @@
+﻿using Jaberah.Middlewares;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 
+// يعرض أجسام الطلبات والردود الفاشلة، فهو للمدير وحده.
 [ApiController]
 [Route("api/[controller]")]
+[ServiceFilter(typeof(VerifyTokenAttribute))]
+[IsAdmin]
 public class LogsController : ControllerBase
 {
     private const string LogFilePath = "Logs/error-requests.log";
