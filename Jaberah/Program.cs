@@ -138,16 +138,8 @@ var app = builder.Build();
 //await DataSeeder.SeedAsync(app.Services);
 
 
-// Schedule the job — runs every minute (job logic skips Fridays and no-ops when no absent teachers)
-RecurringJob.AddOrUpdate<IAttendanceJobService>(
-    "mark-absent-teachers",
-    job => job.MarkAbsentTeachersAsync(),
-    "59 23 * * *", // 23:59 every day
-    new RecurringJobOptions
-    {
-        TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Arab Standard Time")
-    }
-);
+// Schedule the job — runs at 23:59 (job logic skips Fridays and no-ops when no absent teachers)
+RecurringJobs.Register(app.Services);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
