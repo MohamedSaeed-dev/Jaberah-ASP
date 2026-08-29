@@ -9,11 +9,13 @@ using Jaberah.Validations.Groups;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Jaberah.Middlewares;
 
 namespace Jaberah.Controllers
 {
     [Route("api/groups")]
     [ApiController]
+    [ServiceFilter(typeof(VerifyTokenAttribute))]
     public class GroupsController : ControllerBase
     {
         private readonly JaberahDBContext _db;
@@ -29,6 +31,7 @@ namespace Jaberah.Controllers
         }
 
         // GET: api/groups
+        [IsAdmin]
         [HttpGet]
         public async Task<IActionResult> GetGroups([FromQuery] bool withoutTeacher)
         {
@@ -75,6 +78,7 @@ namespace Jaberah.Controllers
             return Ok(groups);
         }
 
+        [IsAdmin]
         [HttpGet("for-general-use")]
         public async Task<IActionResult> GetGroupsForGeneralUse()
         {
@@ -100,6 +104,7 @@ namespace Jaberah.Controllers
         }
 
         // GET: api/groups/{groupId}/students
+        [IsAdmin]
         [HttpGet("{groupId}/students")]
         public async Task<IActionResult> GetStudentsForGroup([FromRoute] int groupId, [FromQuery] string searchText = "", [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
@@ -133,6 +138,7 @@ namespace Jaberah.Controllers
         }
 
         // GET: api/groups/has-no-teacher-data
+        [IsAdmin]
         [HttpGet("has-no-teacher-data")]
         public async Task<IActionResult> GetGroupsWithNoTeacher()
         {
@@ -152,6 +158,7 @@ namespace Jaberah.Controllers
         }
 
         // GET: api/groups/teachers/{teacherId}/has-no-teacher-or-has-teacher
+        [IsAdmin]
         [HttpGet("teachers/{teacherId}/has-no-teacher-or-has-teacher")]
         public async Task<IActionResult> GetGroupsWithNoTeacherAndTeacherGroups([FromRoute] int teacherId)
         {
@@ -171,6 +178,7 @@ namespace Jaberah.Controllers
         }
 
         // POST: api/groups
+        [IsAdmin]
         [HttpPost]
         [AddGroup]
         public async Task<IActionResult> AddGroup([FromBody] AddGroupDTO model)
@@ -197,6 +205,7 @@ namespace Jaberah.Controllers
         }
 
         // PUT: api/groups/{groupId}
+        [IsAdmin]
         [HttpPut("{groupId}")]
         public async Task<IActionResult> UpdateGroup([FromRoute] int groupId, [FromBody] UpdateGroupDTO model)
         {
@@ -227,6 +236,7 @@ namespace Jaberah.Controllers
         }
 
         // DELETE: api/groups/{groupId}
+        [IsAdmin]
         [HttpDelete("{groupId}")]
         public async Task<IActionResult> DeleteGroup([FromRoute] int groupId)
         {
@@ -244,6 +254,7 @@ namespace Jaberah.Controllers
             return Ok(new { message = "تم حذف الحلقة بنجاح" });
         }
 
+        [IsAdmin]
         [HttpGet("deleted")]
         public async Task<IActionResult> GetDeletedGroups()
         {
@@ -276,6 +287,7 @@ namespace Jaberah.Controllers
             return Ok(groups);
         }
 
+        [IsAdmin]
         [HttpDelete("{groupId}/ever")]
         public async Task<IActionResult> DeleteGroupEver([FromRoute] int groupId)
         {
@@ -293,6 +305,7 @@ namespace Jaberah.Controllers
             return Ok(new { message = "تم حذف الحلقة نهائياً بنجاح" });
         }
 
+        [IsAdmin]
         [HttpPatch("{groupId}/restore")]
         public async Task<IActionResult> RestoreGroup([FromRoute] int groupId)
         {

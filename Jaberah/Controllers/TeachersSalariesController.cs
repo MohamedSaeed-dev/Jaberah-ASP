@@ -7,15 +7,18 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Security.Claims;
+using Jaberah.Middlewares;
 
 namespace Jaberah.Controllers
 {
     [Route("api/teachers-salaries")]
     [ApiController]
+    [ServiceFilter(typeof(VerifyTokenAttribute))]
     public class TeachersSalariesController(JaberahDBContext db) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
 
+        [IsAdmin]
         [HttpGet("for-month")]
         public async Task<IActionResult> GetTeachersSalariesForMonth([FromQuery] int year, [FromQuery] int month)
         {
@@ -53,6 +56,7 @@ namespace Jaberah.Controllers
             return Ok(report);
         }
 
+        [IsAdmin]
         [UpsertTeachersSalaries]
         [HttpPost]
         public async Task<IActionResult> UpsertTeachersSalariesForMonth(

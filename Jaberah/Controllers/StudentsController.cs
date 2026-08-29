@@ -8,11 +8,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using static Jaberah.Models.DTOs.Students;
+using Jaberah.Middlewares;
 
 namespace Jaberah.Controllers
 {
     [Route("api/students")]
     [ApiController]
+    [ServiceFilter(typeof(VerifyTokenAttribute))]
+    [IsAdmin]
     public class StudentsController(JaberahDBContext db, IMapper mapper, IMemoryCache cache) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;

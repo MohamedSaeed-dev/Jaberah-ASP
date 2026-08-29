@@ -5,11 +5,13 @@ using Jaberah.Models.MyDbContext;
 using Jaberah.Models.ViewModels.PartialExams;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Jaberah.Middlewares;
 
 namespace Jaberah.Controllers
 {
     [Route("api/exams")]
     [ApiController]
+    [ServiceFilter(typeof(VerifyTokenAttribute))]
     public class ExamsController(JaberahDBContext db, IMapper mapper) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
@@ -78,6 +80,7 @@ namespace Jaberah.Controllers
             return Ok(new { message = "تم الحفظ بنجاح" });
         }
 
+        [IsAdmin]
         [HttpPost("partial-exam")]
         public async Task<IActionResult> AddPartialExam([FromBody] CreatePartialExamDto dto)
         {
@@ -122,6 +125,7 @@ namespace Jaberah.Controllers
             return Ok(partialExam);
         }
 
+        [IsAdmin]
         [HttpPut("partial-exam")]
         public async Task<IActionResult> UpdatePartialExam([FromBody] UpdatePartialExamDto dto)
         {
@@ -159,6 +163,7 @@ namespace Jaberah.Controllers
             return Ok(partialExam);
         }
 
+        [IsAdmin]
         [HttpGet("partial-exam/group/{groupId}")]
         public async Task<IActionResult> GetGroupExamsByDateAsync([FromRoute] int groupId, [FromQuery] DateOnly date)
         {
@@ -216,6 +221,7 @@ namespace Jaberah.Controllers
             return Ok(result);
         }
 
+        [IsAdmin]
         [HttpGet("partial-exam/{id}")]
         public async Task<IActionResult> GetByIdAsync([FromRoute] int id)
         {

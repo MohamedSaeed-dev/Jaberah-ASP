@@ -7,16 +7,19 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using Jaberah.Middlewares;
 
 namespace Jaberah.Controllers
 {
     [Route("api/teachers-attendances")]
     [ApiController]
+    [ServiceFilter(typeof(VerifyTokenAttribute))]
     public class TeachersAttendancesController(JaberahDBContext db, FirebaseService firebaseService) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
         private readonly FirebaseService _firebaseService = firebaseService;
 
+        [IsAdmin]
         [HttpGet("for-month-report")]
         public async Task<IActionResult> GetTeachersAttendancesReportForMonth([FromQuery] DateOnly fromDate, [FromQuery] DateOnly toDate)
         {
@@ -41,6 +44,7 @@ namespace Jaberah.Controllers
             return Ok(result);
         }
 
+        [IsAdmin]
         [HttpGet("for-day-report")]
         public async Task<IActionResult> GetTeachersAttendancesForDay([FromQuery] DateOnly date)
         {
@@ -87,6 +91,7 @@ namespace Jaberah.Controllers
 
             return Ok(result);
         }
+        [IsAdmin]
         [HttpPost]
         public async Task<IActionResult> UpsertTeacherAttendanceForDay([FromQuery] DateOnly date, [FromBody] UpsertTeachersAttendancesDTO model)
         {
@@ -165,6 +170,10 @@ namespace Jaberah.Controllers
         [HttpGet("{teacherId}/for-day")]
         public async Task<IActionResult> GetTeacherAttendanceForDay([FromRoute] int teacherId, [FromQuery] DateOnly date)
         {
+            // معلم يقرأ بيانات نفسه فقط؛ المدير يقرأ أي معلم.
+            if (!this.CanActOnTeacher(teacherId))
+                return Forbid();
+
             if (date == default)
                 return BadRequest(new { message = "يرجى إدخال تاريخ صحيح (سنة وشهر ويوم)" });
             if (teacherId <= 0)
@@ -213,6 +222,10 @@ namespace Jaberah.Controllers
         [HttpGet("{teacherId}/for-month")]
         public async Task<IActionResult> GetTeacherAttendanceForMonth([FromRoute] int teacherId, [FromQuery] DateOnly fromDate, DateOnly toDate)
         {
+            // معلم يقرأ بيانات نفسه فقط؛ المدير يقرأ أي معلم.
+            if (!this.CanActOnTeacher(teacherId))
+                return Forbid();
+
             if (fromDate == default || toDate == default)
                 return BadRequest(new { message = "يرجى إدخال تاريخ صحيح (سنة وشهر)" });
             if (teacherId <= 0)

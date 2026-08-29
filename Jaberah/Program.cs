@@ -31,6 +31,29 @@ builder.Services.AddScoped<DropboxService>();
 builder.Services.AddScoped<FirebaseService>();
 builder.Services.AddScoped<HttpClient>();
 builder.Services.AddMemoryCache();
+
+// AllowAnyOrigin مع كوكي المصادقة يعني أن أي صفحة على الإنترنت تستدعي الـ API
+// نيابةً عن مستخدم مسجَّل. تطبيق الموبايل لا يطبّق CORS فلا يتأثر، وقائمة السماح
+// تُقرأ من الإعدادات؛ إن كانت فارغة لا تُسمح أي origin من المتصفح.
+const string CorsPolicyName = "JaberahCors";
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+    options.AddPolicy(CorsPolicyName, policy =>
+    {
+        if (allowedOrigins.Length == 0)
+        {
+            policy.WithOrigins();
+            return;
+        }
+
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    }));
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -137,9 +160,7 @@ app.UseMiddleware<RequestResponseLoggingMiddleware>();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseRouting();
-app.UseCors(
-    x => x.AllowAnyHeader().AllowAnyOrigin().AllowAnyMethod()
-    );
+app.UseCors(CorsPolicyName);
 app.UseCookiePolicy();
 
 

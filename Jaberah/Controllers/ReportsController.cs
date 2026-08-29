@@ -5,11 +5,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using Jaberah.Middlewares;
 
 namespace Jaberah.Controllers
 {
     [Route("api/reports")]
     [ApiController]
+    [ServiceFilter(typeof(VerifyTokenAttribute))]
     public class ReportsController(JaberahDBContext db) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
@@ -264,6 +266,7 @@ namespace Jaberah.Controllers
             return Ok(report);
         }
 
+        [IsAdmin]
         [HttpGet("best-students-report")]
         public async Task<IActionResult> GetBestStudentsReport([FromQuery] int year,[FromQuery] int month,[FromQuery] int take = 5)
         {
@@ -332,6 +335,7 @@ namespace Jaberah.Controllers
         }
 
 
+        [IsAdmin]
         [HttpGet("best-students-for-group-report")]
         public async Task<IActionResult> GetBestStudentsForGroupReport([FromQuery] int groupId,[FromQuery] int year,[FromQuery] int month,[FromQuery] int take = 5)
         {
@@ -403,6 +407,7 @@ namespace Jaberah.Controllers
             return Ok(result);
         }
 
+        [IsAdmin]
         [HttpGet("monthly-partial-exam")]
         public async Task<IActionResult> GetMonthlyPartialExamReport([FromQuery] int? groupId, [FromQuery] DateOnly fromDate, [FromQuery] DateOnly toDate)
         {

@@ -6,11 +6,13 @@ using Jaberah.Models.ViewModels.Prayers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Jaberah.Middlewares;
 
 namespace Jaberah.Controllers
 {
     [Route("api/prayers")]
     [ApiController]
+    [ServiceFilter(typeof(VerifyTokenAttribute))]
     public class PrayersController(JaberahDBContext db, IMemoryCache cache) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
