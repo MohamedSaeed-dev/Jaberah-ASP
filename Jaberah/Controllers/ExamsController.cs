@@ -5,11 +5,13 @@ using Jaberah.Models.MyDbContext;
 using Jaberah.Models.ViewModels.PartialExams;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Jaberah.Middlewares;
 
 namespace Jaberah.Controllers
 {
     [Route("api/exams")]
     [ApiController]
+    [ServiceFilter(typeof(VerifyTokenAttribute))]
     public class ExamsController(JaberahDBContext db, IMapper mapper) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
@@ -78,6 +80,7 @@ namespace Jaberah.Controllers
             return Ok(new { message = "تم الحفظ بنجاح" });
         }
 
+        [IsAdmin]
         [HttpPost("partial-exam")]
         public async Task<IActionResult> AddPartialExam([FromBody] CreatePartialExamDto dto)
         {
@@ -122,6 +125,7 @@ namespace Jaberah.Controllers
             return Ok(partialExam);
         }
 
+        [IsAdmin]
         [HttpPut("partial-exam")]
         public async Task<IActionResult> UpdatePartialExam([FromBody] UpdatePartialExamDto dto)
         {
@@ -159,6 +163,7 @@ namespace Jaberah.Controllers
             return Ok(partialExam);
         }
 
+        [IsAdmin]
         [HttpGet("partial-exam/group/{groupId}")]
         public async Task<IActionResult> GetGroupExamsByDateAsync([FromRoute] int groupId, [FromQuery] DateOnly date)
         {
@@ -166,6 +171,7 @@ namespace Jaberah.Controllers
 
             // Get all students in the group
             var students = await _db.Students
+                .AsNoTracking()
                 .Where(s => s.GroupId == groupId)
                 .Select(s => new
                 {
@@ -178,6 +184,7 @@ namespace Jaberah.Controllers
             var studentIds = students.Select(s => s.Id).ToList();
 
             var exams = await _db.PartialExams
+                .AsNoTracking()
                 .Where(e => studentIds.Contains(e.StudentId) && e.Date == date)
                 .ToDictionaryAsync(e => e.StudentId, e => e);
 
@@ -216,10 +223,12 @@ namespace Jaberah.Controllers
             return Ok(result);
         }
 
+        [IsAdmin]
         [HttpGet("partial-exam/{id}")]
         public async Task<IActionResult> GetByIdAsync([FromRoute] int id)
         {
             var partialExam = await _db.PartialExams
+           .AsNoTracking()
            .Include(e => e.Student)
            .FirstOrDefaultAsync(e => e.Id == id);
             return Ok(partialExam);

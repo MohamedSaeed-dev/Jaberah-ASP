@@ -1,11 +1,20 @@
+﻿using Jaberah.Middlewares;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 
+// يعرض أجسام الطلبات والردود الفاشلة، فهو للمدير وحده.
 [ApiController]
 [Route("api/[controller]")]
+[ServiceFilter(typeof(VerifyTokenAttribute))]
+[IsAdmin]
 public class LogsController : ControllerBase
 {
     private const string LogFilePath = "Logs/error-requests.log";
+
+    // السجل يُكتب بالإلحاق، فأحدث الأسطر في نهايته. القراءة كانت تحمّل الملف كاملًا
+    // في الذاكرة وتفكّ ترميز كل سطر ثم ترتّب ثم تصفّح — تكلفة تنمو خطيًا مع حجم السجل
+    // وقد تُسقط الخادم على ملف كبير. الآن يُقرأ ذيل الملف فقط، وتُفَكّ الأسطر المطلوبة.
+    private const int MaxScannedLines = 5000;
 
     [HttpGet]
     public IActionResult GetLogs(int pageNumber = 1, int pageSize = 10)
@@ -15,34 +24,49 @@ public class LogsController : ControllerBase
             return NotFound("Log file not found.");
         }
 
-        var logs = new List<LogEntry>();
+        if (pageNumber < 1) pageNumber = 1;
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        // حلقة ثابتة السعة: تحتفظ بآخر MaxScannedLines سطرًا فقط مهما بلغ حجم الملف.
+        var recent = new string[MaxScannedLines];
+        var seen = 0;
 
         using (var fileStream = new FileStream(LogFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
         using (var reader = new StreamReader(fileStream))
         {
-            string line;
+            string? line;
             while ((line = reader.ReadLine()) != null)
             {
-                try
-                {
-                    var logEntry = JsonSerializer.Deserialize<LogEntry>(line);
-                    if (logEntry != null)
-                    {
-                        logs.Add(logEntry);
-                    }
-                }
-                catch (JsonException)
-                {
-                    // You may log this if needed
-                }
+                if (line.Length == 0) continue;
+                recent[seen % MaxScannedLines] = line;
+                seen++;
             }
         }
 
-        logs = logs.OrderByDescending(log => log.Timestamp).ToList();
-
-        var totalCount = logs.Count;
+        var kept = Math.Min(seen, MaxScannedLines);
+        var totalCount = kept;
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
-        var pagedLogs = logs.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+
+        // الأحدث أولًا: نمشي من آخر سطر مكتوب إلى الوراء ونفكّ ترميز الصفحة وحدها.
+        var pagedLogs = new List<LogEntry>(pageSize);
+        var skipped = 0;
+        var toSkip = (pageNumber - 1) * pageSize;
+
+        for (var i = 1; i <= kept && pagedLogs.Count < pageSize; i++)
+        {
+            if (skipped < toSkip) { skipped++; continue; }
+
+            var line = recent[(seen - i) % MaxScannedLines];
+            try
+            {
+                var logEntry = JsonSerializer.Deserialize<LogEntry>(line);
+                if (logEntry != null) pagedLogs.Add(logEntry);
+            }
+            catch (JsonException)
+            {
+                // سطر مشوَّه (كتابة مقطوعة) — يُتخطّى
+            }
+        }
 
         var metadata = new
         {

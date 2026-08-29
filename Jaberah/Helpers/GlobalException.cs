@@ -33,22 +33,21 @@ public class GlobalExceptionMiddleware
         // Set the response status code
         context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
-        // Create a generic error response object
-        var errorResponse = new
-        {
-            Message = "An unexpected error occurred. Please try again later.",
-            Details = exception.Message  // You can choose to send more details in dev environment
-        };
+        // كان الرد الافتراضي يحمل exception.Message دائمًا، والشرط أدناه يوسّعه في التطوير فقط،
+        // أي أن الإنتاج كان يسرّب نص الاستثناء (أخطاء SQL، أسماء جداول، أحيانًا أجزاء من
+        // سلسلة الاتصال) لأي مستدعٍ. التفاصيل تبقى في السجل أعلاه، ولا تُرسل إلا في التطوير.
+        var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
 
-        // Optionally: Don't send detailed exception information to the client in production
-        if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
-        {
-            errorResponse = new
+        object errorResponse = isDevelopment
+            ? new
             {
                 Message = "An unexpected error occurred.",
-                Details = exception.ToString()  // Send detailed stack trace in development
+                Details = exception.ToString()
+            }
+            : new
+            {
+                Message = "An unexpected error occurred. Please try again later."
             };
-        }
 
         // Write the error response
         context.Response.ContentType = "application/json";

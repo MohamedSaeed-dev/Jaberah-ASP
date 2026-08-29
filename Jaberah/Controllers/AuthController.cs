@@ -1,4 +1,5 @@
-﻿using Jaberah.Middlewares;
+﻿using Jaberah.Helpers;
+using Jaberah.Middlewares;
 using Jaberah.Models.MyDbContext;
 using Jaberah.Models.ViewModels.Teachers;
 using Microsoft.AspNetCore.Authorization;
@@ -54,7 +55,9 @@ namespace Jaberah.Controllers
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.Strict,
-                Path = "/auth/",
+                // المسار الحقيقي "api/auth/refresh"؛ الكوكي بمسار "/auth/" لا يُطابِقه أبدًا
+                // فلا يُرسَل، فيرجع /refresh بـ 401 دائمًا ويُطرَد المستخدم عند انتهاء التوكن.
+                Path = "/api/auth/",
                 Expires = DateTime.UtcNow.AddHours(3).AddDays(30)
             });
             return Ok(new { user = userData, accessToken });
@@ -81,20 +84,27 @@ namespace Jaberah.Controllers
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.Strict,
-                Path = "/auth/",
+                // المسار الحقيقي "api/auth/refresh"؛ الكوكي بمسار "/auth/" لا يُطابِقه أبدًا
+                // فلا يُرسَل، فيرجع /refresh بـ 401 دائمًا ويُطرَد المستخدم عند انتهاء التوكن.
+                Path = "/api/auth/",
                 Expires = DateTime.UtcNow.AddHours(3).AddDays(30)
             });
             return Ok(new { accessToken = newAccessToken });
         }
 
+        // كان الـ UserId يُؤخذ من جسم الطلب، فأي معلم مصادَق يستطيع تمرير معرّف معلم آخر
+        // ويوجّه إشعاراته إلى جهازه هو. الهوية تُؤخذ من التوكن لا من المستدعي.
+        [ServiceFilter(typeof(VerifyTokenAttribute))]
         [HttpPatch("fcm-token")]
         public async Task<IActionResult> UpdateFCMToken([FromBody] UpdateFCMTokenDTO model)
         {
-            if (model == default || model.UserId <= 0 || string.IsNullOrWhiteSpace(model.Token))
+            if (model == default || string.IsNullOrWhiteSpace(model.Token))
             {
                 return BadRequest(new { message = "البيانات خاطئة" });
             }
-            var teacher = await _db.Teachers.FirstOrDefaultAsync(x => x.Id == model.UserId);
+
+            var callerId = this.CurrentUser()!.Id;
+            var teacher = await _db.Teachers.FirstOrDefaultAsync(x => x.Id == callerId);
             if (teacher == null)
             {
                 return BadRequest(new { message = "لايوجد معلم" });

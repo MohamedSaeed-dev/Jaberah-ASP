@@ -1,4 +1,5 @@
-﻿using Jaberah.Models.MyDbContext;
+﻿using Jaberah.Middlewares;
+using Jaberah.Models.MyDbContext;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -34,9 +35,14 @@ namespace Jaberah.Controllers
                 url = appVersion.URL
             });
         }
+        // يستدعيها خط النشر فقط، لا التطبيق، والـ CI لا يملك JWT — فالمصادقة هنا
+        // بمفتاح النشر لا بالتوكن. [AllowAnonymous] يعطّل سياسة الـ JWT العامة فقط،
+        // ويبقى RequireDeployKey حارسًا فعليًا. قبل ذلك كانت النقطة مفتوحة تمامًا:
+        // أي أحد يرفع APK فيصبح تحديث التطبيق الرسمي لكل المستخدمين.
         [AllowAnonymous]
+        [ServiceFilter(typeof(RequireDeployKeyAttribute))]
         [HttpPut]
-        [RequestSizeLimit(100_000_000)] 
+        [RequestSizeLimit(100_000_000)]
         public async Task<IActionResult> UpdateVersion([FromQuery] string version, IFormFile apkFile)
         {
             if (string.IsNullOrWhiteSpace(version) || apkFile == null || apkFile.Length == 0)
@@ -50,20 +56,13 @@ namespace Jaberah.Controllers
                     URL = ""
                 };
 
-            // Read the file as byte array
-            byte[] fileBytes;
-            using (var memoryStream = new MemoryStream())
-            {
-                await apkFile.CopyToAsync(memoryStream);
-                fileBytes = memoryStream.ToArray();
-            }
-
             // Refresh Dropbox Access Token
             var accessToken = await _dropboxService.RefreshAccessTokenAsync();
 
-            // Upload APK to Dropbox
+            // Upload APK to Dropbox (بالتدفّق، بلا تحميل الملف في الذاكرة)
             var filePath = $"/jaberah-{version}.apk";
-            await _dropboxService.UploadFileAsync(accessToken, filePath, fileBytes);
+            await using var apkStream = apkFile.OpenReadStream();
+            await _dropboxService.UploadFileAsync(accessToken, filePath, apkStream);
 
             // Get Sharable Link from Dropbox
             var sharableLink = await _dropboxService.GetSharableLinkAsync(accessToken, filePath);

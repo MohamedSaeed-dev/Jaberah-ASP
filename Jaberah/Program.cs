@@ -1,4 +1,4 @@
-using FirebaseAdmin;
+﻿using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
 using Hangfire;
 using Jaberah.Helpers;
@@ -25,11 +25,35 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<JaberahDBContext>(x => x.UseSqlServer(builder.Configuration.GetConnectionString("DB")));
 builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddScoped<VerifyTokenAttribute>();
+builder.Services.AddScoped<RequireDeployKeyAttribute>();
 builder.Services.AddScoped<TokenHelper>();
 builder.Services.AddScoped<DropboxService>();
 builder.Services.AddScoped<FirebaseService>();
 builder.Services.AddScoped<HttpClient>();
 builder.Services.AddMemoryCache();
+
+// AllowAnyOrigin مع كوكي المصادقة يعني أن أي صفحة على الإنترنت تستدعي الـ API
+// نيابةً عن مستخدم مسجَّل. تطبيق الموبايل لا يطبّق CORS فلا يتأثر، وقائمة السماح
+// تُقرأ من الإعدادات؛ إن كانت فارغة لا تُسمح أي origin من المتصفح.
+const string CorsPolicyName = "JaberahCors";
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+    options.AddPolicy(CorsPolicyName, policy =>
+    {
+        if (allowedOrigins.Length == 0)
+        {
+            policy.WithOrigins();
+            return;
+        }
+
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    }));
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -113,18 +137,9 @@ var app = builder.Build();
 
 //await DataSeeder.SeedAsync(app.Services);
 
-app.UseHangfireDashboard(); // optional: view jobs at /hangfire
 
-// Schedule the job — runs every minute (job logic skips Fridays and no-ops when no absent teachers)
-RecurringJob.AddOrUpdate<IAttendanceJobService>(
-    "mark-absent-teachers",
-    job => job.MarkAbsentTeachersAsync(),
-    "59 23 * * *", // 23:59 every day
-    new RecurringJobOptions
-    {
-        TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Arab Standard Time")
-    }
-);
+// Schedule the job — runs at 23:59 (job logic skips Fridays and no-ops when no absent teachers)
+RecurringJobs.Register(app.Services);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -137,9 +152,7 @@ app.UseMiddleware<RequestResponseLoggingMiddleware>();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseRouting();
-app.UseCors(
-    x => x.AllowAnyHeader().AllowAnyOrigin().AllowAnyMethod()
-    );
+app.UseCors(CorsPolicyName);
 app.UseCookiePolicy();
 
 

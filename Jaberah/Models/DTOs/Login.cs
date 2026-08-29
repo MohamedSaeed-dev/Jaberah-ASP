@@ -14,9 +14,9 @@
             public string RefreshToken { get; set; }
         }
 
+        // لا UserId هنا: هوية صاحب التوكن تُشتق من التوكن نفسه في AuthController.
         public record UpdateFCMTokenDTO
         {
-            public int UserId { get; set; }
             public string Token { get; set; }
         }
     }

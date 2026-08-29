@@ -4,11 +4,13 @@ using Jaberah.Models.MyDbContext;
 using Jaberah.Models.ViewModels.FollowStudents;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Jaberah.Middlewares;
 
 namespace Jaberah.Controllers
 {
     [Route("api/follow-students")]
     [ApiController]
+    [ServiceFilter(typeof(VerifyTokenAttribute))]
     public class FollowStudentsController(JaberahDBContext db) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;

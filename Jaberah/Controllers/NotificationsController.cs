@@ -5,17 +5,20 @@ using Jaberah.Models.MyDbContext;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Jaberah.Helpers;
+using Jaberah.Middlewares;
 
 namespace Jaberah.Controllers
 {
     [Route("api/notifications")]
     [ApiController]
+    [ServiceFilter(typeof(VerifyTokenAttribute))]
     public class NotificationsController(JaberahDBContext db, IMapper mapper, FirebaseService firebaseService) : ControllerBase
     {
         private readonly JaberahDBContext _db = db;
         private readonly IMapper _mapper = mapper;
         private readonly FirebaseService _firebaseService = firebaseService;
 
+        [IsAdmin]
         [HttpPost("send")]
         public async Task<IActionResult> SendNotification([FromBody] NotificationsDTO message)
         {
@@ -35,6 +38,7 @@ namespace Jaberah.Controllers
             return Ok(new { message = "تم ارسال الاشعار بنجاح" });
         }
 
+        [IsAdmin]
         [HttpPost("send/{teacherId}")]
         public async Task<IActionResult> SendNotificationToTeacher(int teacherId, [FromBody] NotificationsDTO message)
         {
@@ -66,6 +70,7 @@ namespace Jaberah.Controllers
             return Ok(await _db.Notifications.AsNoTracking().OrderByDescending(x => x.CreatedAt).ToPagedListAsync(pageNumber, pageSize));
         }
 
+        [IsAdmin]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteNotification(int id)
         {
