@@ -192,14 +192,14 @@ namespace Jaberah.Controllers
 
             var (pageNumber, pageSize) = (Math.Max(query.PageNumber, 1), Math.Clamp(query.PageSize, 1, MaxPageSize));
 
-            var studentsQuery = _db.Students.AsNoTracking();
+            // شاشة كشف النظافة شاشة معلم، فنطاقها حلقات المستدعي نفسه مهما كان دوره.
+            // المدير لا يُستثنى هنا: "كل الحلقات" في الشاشة تعني كل حلقاته هو،
+            // لا كل حلقات المسجد.
+            var callerId = CurrentUser.Id;
 
-            // المعلم لا يرى الا طلاب حلقاته، والمدير يرى الجميع
-            if (!IsCurrentUserAdmin)
-            {
-                var teacherId = CurrentUser.Id;
-                studentsQuery = studentsQuery.Where(s => s.Group != null && s.Group.TeacherId == teacherId);
-            }
+            var studentsQuery = _db.Students
+                .AsNoTracking()
+                .Where(s => s.Group != null && s.Group.TeacherId == callerId);
 
             if (query.GroupId.HasValue)
                 studentsQuery = studentsQuery.Where(s => s.GroupId == query.GroupId.Value);
