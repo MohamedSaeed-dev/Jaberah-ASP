@@ -22,11 +22,11 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
-      - name: Publish
-        run: dotnet publish --configuration Release --output ./publish --runtime win-x86
+      - name: Test
+        run: dotnet test --configuration Release --verbosity normal
 
-      - name: Test with .NET
-        run: dotnet test
+      - name: Publish
+        run: dotnet publish Jaberah/Jaberah.csproj --configuration Release --output ./publish --runtime win-x86
 
       - name: Deploy to MonsterASP.NET via WebDeploy
         uses: rasmusbuchholdt/simply-web-deploy@2.1.0

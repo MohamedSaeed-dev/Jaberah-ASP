@@ -5,6 +5,8 @@ VisualStudioVersion = 17.11.35327.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jaberah", "Jaberah\Jaberah.csproj", "{3772DB8F-6BB5-4D2B-8835-9501C865677B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jaberah.Tests", "Jaberah.Tests\Jaberah.Tests.csproj", "{F4470FE9-CE53-44F0-925B-D580D93BA657}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{3772DB8F-6BB5-4D2B-8835-9501C865677B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3772DB8F-6BB5-4D2B-8835-9501C865677B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3772DB8F-6BB5-4D2B-8835-9501C865677B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F4470FE9-CE53-44F0-925B-D580D93BA657}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F4470FE9-CE53-44F0-925B-D580D93BA657}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F4470FE9-CE53-44F0-925B-D580D93BA657}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F4470FE9-CE53-44F0-925B-D580D93BA657}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

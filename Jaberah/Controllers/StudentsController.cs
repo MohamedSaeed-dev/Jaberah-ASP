@@ -4,6 +4,7 @@ using Jaberah.Models.JaberahModels;
 using Jaberah.Models.MyDbContext;
 using Jaberah.Models.ViewModels.Groups;
 using Jaberah.Models.ViewModels.Students;
+using Jaberah.Queries;
 using Jaberah.Validations.Students;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -23,8 +24,8 @@ namespace Jaberah.Controllers
         [HttpGet]
         public async Task<IActionResult> GetStudents([FromQuery] string searchText = "", [FromQuery] bool withoutGroup = false, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
-            var query = _db.Students.AsNoTracking().Where(x => x.StudentName.Contains(searchText)).AsQueryable();
-            if (withoutGroup) query = query.Where(x => !x.GroupId.HasValue).AsQueryable();
+            var query = StudentQueries.FilterAndSort(_db.Students.AsNoTracking(), searchText, withoutGroup);
+
             var selectedQuery = query.Select(x => new GetStudentsForView
             {
                 Id = x.Id,
@@ -37,10 +38,9 @@ namespace Jaberah.Controllers
                 GroupId = x.GroupId,
                 GroupName = x.Group.GroupName,
                 Notes = x.Notes
-            }).AsQueryable();
+            });
 
-            var pagedStudents = (await selectedQuery.Skip((pageNumber - 1) * pageSize).Take(pageSize).OrderByDescending(s => s.MemoRate).ToListAsync())
-                            .ToPagedList(await selectedQuery.CountAsync(), pageNumber, pageSize);
+            var pagedStudents = await selectedQuery.ToPagedListAsync(pageNumber, pageSize);
 
             return Ok(pagedStudents);
         }
