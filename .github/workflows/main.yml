@@ -24,11 +24,13 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
-      - name: Publish
-        run: dotnet publish --configuration Release --output ./publish --runtime win-x86
-
+      # قبل النشر لا بعده: اختبار فاشل يجب أن يوقف الخط قبل بناء حزمة النشر.
       - name: Test with .NET
-        run: dotnet test
+        run: dotnet test --configuration Release --no-build
+
+      # مشروع الويب صراحةً: نشر الحل كاملًا يجمع مخرجات كل المشاريع في مجلد واحد.
+      - name: Publish
+        run: dotnet publish Jaberah/Jaberah.csproj --configuration Release --output ./publish --runtime win-x86
 
       # Deploy for MASTER (Server 1)
       - name: Deploy to MonsterASP.NET (Server 1)

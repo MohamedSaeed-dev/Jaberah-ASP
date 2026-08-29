@@ -41,8 +41,16 @@ namespace Jaberah.Controllers
                 Notes = x.Notes
             }).AsQueryable();
 
-            var pagedStudents = (await selectedQuery.Skip((pageNumber - 1) * pageSize).Take(pageSize).OrderByDescending(s => s.MemoRate).ToListAsync())
-                            .ToPagedList(await selectedQuery.CountAsync(), pageNumber, pageSize);
+            // الترتيب كان بعد Skip/Take، أي يرتّب الصفحة وحدها بعد اقتطاعها من مجموعة
+            // غير مرتّبة؛ SQL Server لا يضمن ترتيبًا بلا ORDER BY فقد يتكرر صف بين
+            // الصفحات أو يختفي. الترتيب قبل الاقتطاع، وبمفتاح فريد لفض تعادل المعدّل.
+            var pagedStudents = (await selectedQuery
+                    .OrderByDescending(s => s.MemoRate)
+                    .ThenBy(s => s.Id)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync())
+                .ToPagedList(await selectedQuery.CountAsync(), pageNumber, pageSize);
 
             return Ok(pagedStudents);
         }
@@ -51,10 +59,11 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> AddStudent([FromBody] AddStudentDTO model)
         {
             var studentName = model.StudentName.Trim();
+            // فحص وجود فقط: AnyAsync لا يجلب أعمدة ولا يتعقّب كيانًا.
             var existingStudent = await _db.Students
-                .FirstOrDefaultAsync(s => s.Name == studentName);
+                .AnyAsync(s => s.Name == studentName);
 
-            if (existingStudent != null)
+            if (existingStudent)
             {
                 return BadRequest(new { message = "الطالب موجود مسبقاً" });
             }
@@ -62,9 +71,9 @@ namespace Jaberah.Controllers
             if (model.GroupId.HasValue)
             {
                 var groupExists = await _db.Groups
-                    .FirstOrDefaultAsync(g => g.Id == model.GroupId);
+                    .AnyAsync(g => g.Id == model.GroupId);
 
-                if (groupExists == null)
+                if (!groupExists)
                 {
                     return NotFound(new { message = "لاتوجد حلقة بهذا المعرف" });
                 }

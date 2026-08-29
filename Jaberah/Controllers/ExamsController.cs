@@ -171,6 +171,7 @@ namespace Jaberah.Controllers
 
             // Get all students in the group
             var students = await _db.Students
+                .AsNoTracking()
                 .Where(s => s.GroupId == groupId)
                 .Select(s => new
                 {
@@ -183,6 +184,7 @@ namespace Jaberah.Controllers
             var studentIds = students.Select(s => s.Id).ToList();
 
             var exams = await _db.PartialExams
+                .AsNoTracking()
                 .Where(e => studentIds.Contains(e.StudentId) && e.Date == date)
                 .ToDictionaryAsync(e => e.StudentId, e => e);
 
@@ -226,6 +228,7 @@ namespace Jaberah.Controllers
         public async Task<IActionResult> GetByIdAsync([FromRoute] int id)
         {
             var partialExam = await _db.PartialExams
+           .AsNoTracking()
            .Include(e => e.Student)
            .FirstOrDefaultAsync(e => e.Id == id);
             return Ok(partialExam);

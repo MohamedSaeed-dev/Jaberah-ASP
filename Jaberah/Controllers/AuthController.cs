@@ -55,7 +55,9 @@ namespace Jaberah.Controllers
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.Strict,
-                Path = "/auth/",
+                // المسار الحقيقي "api/auth/refresh"؛ الكوكي بمسار "/auth/" لا يُطابِقه أبدًا
+                // فلا يُرسَل، فيرجع /refresh بـ 401 دائمًا ويُطرَد المستخدم عند انتهاء التوكن.
+                Path = "/api/auth/",
                 Expires = DateTime.UtcNow.AddHours(3).AddDays(30)
             });
             return Ok(new { user = userData, accessToken });
@@ -82,7 +84,9 @@ namespace Jaberah.Controllers
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.Strict,
-                Path = "/auth/",
+                // المسار الحقيقي "api/auth/refresh"؛ الكوكي بمسار "/auth/" لا يُطابِقه أبدًا
+                // فلا يُرسَل، فيرجع /refresh بـ 401 دائمًا ويُطرَد المستخدم عند انتهاء التوكن.
+                Path = "/api/auth/",
                 Expires = DateTime.UtcNow.AddHours(3).AddDays(30)
             });
             return Ok(new { accessToken = newAccessToken });

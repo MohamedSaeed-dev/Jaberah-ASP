@@ -35,9 +35,11 @@ namespace Jaberah.Controllers
                         DefaultRakats = p.DefaultRakats,
                         DisplayOrder = p.DisplayOrder,
                     })
+                    // الترتيب كان بعد الاقتطاع فيرتّب الصفحة وحدها؛ DisplayOrder هو المقصود.
+                    .OrderBy(p => p.DisplayOrder)
+                    .ThenBy(p => p.Id)
                     .Skip((skip - 1) * take)
                     .Take(take)
-                    .OrderBy(p => p.DisplayOrder)
                     .ToListAsync();
 
                 _cache.Set(cacheKey, prayers, new MemoryCacheEntryOptions
@@ -183,7 +185,12 @@ namespace Jaberah.Controllers
             if (groupId.HasValue)
                 studentsQuery = studentsQuery.Where(s => s.GroupId == groupId);
 
-            var students = await studentsQuery.Select(s => new { s.Id, s.Name, GroupName = s.Group != null ? s.Group.Name : null }).Skip((skip - 1) * take).Take(take).ToListAsync();
+            var students = await studentsQuery
+                .Select(s => new { s.Id, s.Name, GroupName = s.Group != null ? s.Group.Name : null })
+                .OrderBy(s => s.Id)   // تصفيح بلا ترتيب: صفحتان متتاليتان قد تتقاطعان
+                .Skip((skip - 1) * take)
+                .Take(take)
+                .ToListAsync();
             var studentIds = students.Select(s => s.Id).ToList();
 
             var attendances = await _db.StudentPrayerAttendances

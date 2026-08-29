@@ -41,7 +41,12 @@ namespace Jaberah.Controllers
                 }).ToList()
             }).AsQueryable();
 
-            var pagedTeachers = (await selectedQuery.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
+            // تصفيح بلا ORDER BY — انظر التعليق نفسه في StudentsController.
+            var pagedTeachers = (await selectedQuery
+                    .OrderBy(x => x.Id)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync())
                 .ToPagedList(await selectedQuery.CountAsync(), pageNumber, pageSize);
 
             return Ok(pagedTeachers);
@@ -142,10 +147,11 @@ namespace Jaberah.Controllers
         [HttpPost]
         public async Task<IActionResult> AddTeacher([FromBody] AddTeacherDTO model)
         {
+            // فحص وجود فقط: AnyAsync لا يجلب أعمدة ولا يتعقّب كيانًا.
             var existingTeacher = await _db.Teachers
-                .FirstOrDefaultAsync(t => t.Name == model.TeacherName.Trim());
+                .AnyAsync(t => t.Name == model.TeacherName.Trim());
 
-            if (existingTeacher != null)
+            if (existingTeacher)
             {
                 return BadRequest(new { message = "المعلم موجود مسبقاً" });
             }
@@ -206,6 +212,7 @@ namespace Jaberah.Controllers
             if (model.GroupsId is not null && model.GroupsId.Count > 0)
             {
                 var existingGroups = await _db.Groups
+                    .AsNoTracking()
                     .Where(g => model.GroupsId.Contains(g.Id))
                     .ToListAsync();
 

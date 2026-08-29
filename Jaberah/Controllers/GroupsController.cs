@@ -129,8 +129,14 @@ namespace Jaberah.Controllers
                     Notes = x.Notes
                 });
 
-            var pagedStudents = (await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync())
-                            .ToPagedList(await query.CountAsync(), pageNumber, pageSize);
+            // تصفيح بلا ORDER BY: الترتيب غير مضمون بين الطلبات، فقد يتكرر طالب بين
+            // صفحتين أو يسقط. Id يحفظ الترتيب الذي يظهر اليوم فعليًا ويجعله مستقرًا.
+            var pagedStudents = (await query
+                    .OrderBy(x => x.Id)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync())
+                .ToPagedList(await query.CountAsync(), pageNumber, pageSize);
 
 
 
@@ -183,10 +189,11 @@ namespace Jaberah.Controllers
         [AddGroup]
         public async Task<IActionResult> AddGroup([FromBody] AddGroupDTO model)
         {
+            // فحص وجود فقط: AnyAsync لا يجلب أعمدة ولا يتعقّب كيانًا.
             var existingGroup = await _db.Groups
-                .FirstOrDefaultAsync(g => g.Name.Trim() == model.GroupName.Trim());
+                .AnyAsync(g => g.Name.Trim() == model.GroupName.Trim());
 
-            if (existingGroup != null)
+            if (existingGroup)
                 return BadRequest(new { message = "الحلقة موجودة مسبقاً" });
 
             if (model.TeacherId.HasValue && !await _db.Teachers.AnyAsync(x => x.Id == model.TeacherId.Value))

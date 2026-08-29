@@ -233,7 +233,7 @@ namespace Jaberah.Controllers
             if (!await _db.Teachers.AnyAsync(x => x.Id == teacherId))
                 return NotFound(new { message = "المعلم غير موجود" });
 
-            var groupsOfTeacher = await _db.Groups.Where(g => g.TeacherId == teacherId).Select(g => new
+            var groupsOfTeacher = await _db.Groups.AsNoTracking().Where(g => g.TeacherId == teacherId).Select(g => new
             {
                 g.Id,
                 g.Name
