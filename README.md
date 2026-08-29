@@ -1,180 +1,201 @@
 # Jaberah API
 
-الخادم الذي يقف خلف تطبيق **حلقات مسجد جابرة**. يدير المعلمين وحلقاتهم وطلابهم،
-ويسجّل متابعة الحفظ والمراجعة، والصلوات، والاختبارات، وحضور المعلمين ورواتبهم،
-وكشف النظافة اليومي — ويُخرج من ذلك تقارير شهرية وفصلية للمدير.
+[العربية](README.ar.md)
 
-المستهلك الوحيد لهذه الواجهة هو تطبيق الجوال في مستودع
+Backend for the Jaberah Mosque Circles app (حلقات مسجد جابرة). It manages
+teachers, their circles (حلقات) and students, and records daily memorisation
+and revision follow-up, prayers, exams, teacher attendance and salaries, and
+the daily cleaning roster — then turns all of that into monthly and semester
+reports for the administrator.
+
+The only consumer of this API is the mobile app in
 [Jaberah-Flutter](https://github.com/MohamedSaeed-dev/Jaberah-Flutter).
-لا توجد واجهة ويب، ولا عملاء آخرون.
+There is no web frontend and no other client.
 
-## الأدوار
+## Roles
 
-دوران اثنان فقط، في عمود `Role` من جدول `Teachers`. لا يوجد جدول مستخدمين منفصل —
-المدير معلم بدور مختلف.
+Two roles, stored in the `Role` column of the `Teachers` table. There is no
+separate users table — an administrator is a teacher with a different role.
 
-| الدور | القيمة | النطاق |
+| Role | Value | Scope |
 |---|---|---|
-| `ADMIN` | 1 | الحلقات، الطلاب، المعلمون، الرواتب، الاختبارات الجزئية، التقارير، سلة المحذوفات، السجلات |
-| `TEACHER` | 2 | حلقاته هو: المتابعة اليومية، الصلوات، كشف النظافة، حضوره، راتبه، تقاريره |
+| `ADMIN` | 1 | Circles, students, teachers, salaries, partial exams, reports, trash, logs |
+| `TEACHER` | 2 | Their own circles: daily follow-up, prayers, cleaning roster, own attendance, own salary, own reports |
 
-بعض النقاط يصلها الاثنان وتحمل معرّف المعلم في المسار
-(`GET /api/teachers/{id}/groups`، `PUT /api/teachers/{id}`، وحضور المعلم).
-هذه محصورة بالهوية لا بالدور: المدير يصل لأي معلم، وغيره لنفسه فقط.
+A few endpoints are reached by both and carry a teacher id in the route
+(`GET /api/teachers/{id}/groups`, `PUT /api/teachers/{id}`, and teacher
+attendance). Those are scoped by identity rather than by role: an admin can
+act on any teacher, anyone else only on themselves.
 
-## التقنيات
+## Stack
 
-ASP.NET Core 9 · EF Core 9 على SQL Server · AutoMapper · Hangfire · Serilog ·
-Firebase Admin SDK للإشعارات · Dropbox لاستضافة ملف الـ APK · xUnit للاختبارات.
+ASP.NET Core 9 · EF Core 9 on SQL Server · AutoMapper · Hangfire · Serilog ·
+Firebase Admin SDK for push · Dropbox for APK hosting · xUnit for tests.
 
-## تنظيم المشروع
+## Layout
 
 ```
 Jaberah/
-  Controllers/        نقطة لكل مجال: Auth, Students, Groups, Teachers, Prayers,
+  Controllers/        One per domain: Auth, Students, Groups, Teachers, Prayers,
                       FollowStudents, Exams, Reports, CleaningLogs, ...
   Models/
-    JaberahModels/    كيانات EF (Student, Group, Teacher, CleaningLog, ...)
-    DTOs/             أجسام الطلبات
-    ViewModels/       أشكال الردود
-    MyDbContext/      JaberahDBContext — كل التعيينات والفهارس في مكان واحد
-  Middlewares/        VerifyToken, IsAdmin, RequireDeployKey, تسجيل الطلبات
-  Validations/        التحقق من المدخلات كـ action filters (انظر أدناه)
-  Helpers/            AutoMapper, Dropbox, Firebase, PagedList, معالج الاستثناءات
-  Jobs/               مهمة Hangfire الدورية وفلتر لوحتها
-  SeedData/           بذور اختيارية من ملفات JSON (معطَّلة افتراضيًا)
-Jaberah.Tests/        xUnit على SQLite في الذاكرة
+    JaberahModels/    EF entities (Student, Group, Teacher, CleaningLog, ...)
+    DTOs/             Request bodies
+    ViewModels/       Response shapes
+    MyDbContext/      JaberahDBContext — every mapping and index in one file
+  Middlewares/        VerifyToken, IsAdmin, RequireDeployKey, request logging
+  Validations/        Input validation as action filters (see below)
+  Helpers/            AutoMapper, Dropbox, Firebase, PagedList, exception handler
+  Jobs/               The recurring Hangfire job and its dashboard filter
+  SeedData/           Optional JSON seeding (disabled by default)
+Jaberah.Tests/        xUnit against SQLite in memory
 ```
 
-## أعراف تُربك القادم الجديد
+## Conventions that catch people out
 
-**الحذف ناعم.** كيانات المجال ترث `BaseEntity` (`Id`, `CreatedAt`, `UpdatedAt`,
-`DeletedAt`)، و`OnModelCreating` يمرّ على كل ما يرثه ويركّب عليه `HasQueryFilter`
-يُخفي المحذوف. فـ `_db.Students` **لا** ترجع المحذوفين إطلاقًا؛ للوصول إليهم — كما في
-سلة المحذوفات — استعمل `.IgnoreQueryFilters()`. وللحذف استعمل `_db.SoftDelete(entity)`
-لا `Remove`.
+**Deletes are soft.** Domain entities inherit `BaseEntity` (`Id`, `CreatedAt`,
+`UpdatedAt`, `DeletedAt`), and `OnModelCreating` walks every type that inherits
+it and attaches a `HasQueryFilter` hiding deleted rows. So `_db.Students` never
+returns deleted students. To reach them — as the trash screen does — use
+`.IgnoreQueryFilters()`. To delete, call `_db.SoftDelete(entity)`, not `Remove`.
 
-يشذّ عن ذلك جدولا المرجع `Prayers` و`CleaningTasks`: لا يرثان `BaseEntity`، ويُبذران
-بـ `HasData` في نفس الملف، ولا يُحذفان — التعطيل فيهما براية `IsActive`.
+The exceptions are the two reference tables, `Prayers` and `CleaningTasks`:
+they do not inherit `BaseEntity`, they are seeded with `HasData` in the same
+file, and they are never deleted — deactivation is an `IsActive` flag.
 
-**الوقت بتوقيت الرياض لا UTC.** `JaberahDBContext.GetCurrentDateTime()` يرجع
-`DateTime.UtcNow.AddHours(3)`، وهو ما يُختم به `CreatedAt`/`UpdatedAt` تلقائيًا في
-`SaveChangesAsync`. تعامل مع كل ختم زمني في القاعدة على أنه توقيت محلي (+3).
+**Timestamps are Riyadh time, not UTC.** `JaberahDBContext.GetCurrentDateTime()`
+returns `DateTime.UtcNow.AddHours(3)`, and that is what stamps `CreatedAt` and
+`UpdatedAt` automatically in `SaveChangesAsync`. Read every timestamp in the
+database as local time (+3).
 
-**التحقق من المدخلات ليس DataAnnotations.** كل عملية لها attribute خاص في
-`Validations/` (مثل `[AddStudent]` و`[UpdateTeacher]`) يفحص الـ DTO ويرجع 400
-مع `validationContent` — قائمة `{key, message}` بالعربية يعرضها التطبيق كما هي.
-عند إضافة نقطة جديدة اتبع النمط نفسه بدل وضع سمات على الـ DTO.
+**Validation is not DataAnnotations.** Each operation has its own attribute
+under `Validations/` (`[AddStudent]`, `[UpdateTeacher]`, and so on) that
+inspects the DTO and returns 400 with a `validationContent` array of
+`{key, message}` pairs in Arabic, which the app displays verbatim. Follow the
+same pattern for new endpoints rather than annotating DTOs.
 
-**طبقتا مصادقة.** `FallbackPolicy` في `Program.cs` تفرض توكن JWT صالحًا على كل
-نقطة لم تُعلَّم بـ `[AllowAnonymous]`. وفوقها `[ServiceFilter(typeof(VerifyTokenAttribute))]`
-الذي يحمّل المعلم من القاعدة ويضعه في `HttpContext.Items["User"]`، وعليه يعتمد
-`[IsAdmin]` وامتدادات `CurrentUserExtensions`. الكنترولر الذي يحتاج معرفة
-المستدعي يحتاج الاثنين معًا.
+**Two layers of authentication.** The `FallbackPolicy` in `Program.cs` requires
+a valid JWT on every endpoint not marked `[AllowAnonymous]`. On top of that,
+`[ServiceFilter(typeof(VerifyTokenAttribute))]` loads the teacher from the
+database and puts them in `HttpContext.Items["User"]`, which `[IsAdmin]` and
+the `CurrentUserExtensions` helpers depend on. A controller that needs to know
+who is calling needs both.
 
-**مجلد `Migrations/` مستثنى من Git**، ولا يُطبَّق شيء تلقائيًا عند الإقلاع. أول
-تشغيل محلي يتطلب توليد migration وتطبيقه بنفسك.
+**`Migrations/` is gitignored** and nothing is applied at startup, so a first
+local run means generating and applying your own migration.
 
-## التشغيل محليًا
+## Running locally
 
-المتطلبات: .NET SDK 9، و SQL Server (LocalDB يكفي).
+You need the .NET 9 SDK and SQL Server (LocalDB is enough).
 
-`appsettings.json` غير مرفوع (مستثنى من Git). أنشئه في مجلد `Jaberah/` بهذا الشكل:
+`appsettings.json` is not in the repository. Create it under `Jaberah/`:
 
 ```json
 {
   "ConnectionStrings": { "DB": "Server=(localdb)\\MSSQLLocalDB;Database=Jaberah;Trusted_Connection=True;" },
-  "TokenKey": "مفتاح توقيع طويل عشوائي",
-  "DeployKey": "مفتاح نشر الـ APK",
+  "TokenKey": "a long random signing key",
+  "DeployKey": "the APK publish key",
   "Cors": { "AllowedOrigins": [] },
-  "FCM": { "ServiceAccountFilePath": "المسار إلى ملف حساب خدمة Firebase" },
+  "FCM": { "ServiceAccountFilePath": "path to the Firebase service account file" },
   "Dropbox": { "clientId": "...", "clientSecret": "...", "refreshToken": "..." }
 }
 ```
 
-ملف حساب خدمة Firebase مستثنى من Git أيضًا ولا يدخل حزمة النشر — يوضع على الخادم
-يدويًا. وانتبه: `GoogleCredential.FromFile` يقرأ الملف عند الإقلاع ولا يتحقق منه
-لدى Google، فمفتاح منتهٍ أو تالف يُقلع بنجاح ثم يفشل عند أول إرسال إشعار برسالة
-`invalid_grant: Invalid JWT Signature`. وانقل الملف بوضع binary — النقل النصي يفسد
-أسطر `private_key` ويعطي الخطأ نفسه.
+The Firebase service account file is gitignored too and is not part of the
+deploy package — it is placed on the server by hand. Note that
+`GoogleCredential.FromFile` only reads and parses the file at startup; it never
+checks it against Google. A revoked or corrupted key starts up perfectly well
+and then fails on the first push notification with
+`invalid_grant: Invalid JWT Signature`. Transfer the file in binary mode — an
+ASCII transfer mangles the newlines in `private_key` and produces exactly the
+same error.
 
-ثم:
+Then:
 
 ```bash
 dotnet restore
-dotnet tool restore              # dotnet-ef مثبَّت كأداة محلية في .config
+dotnet tool restore              # dotnet-ef is a local tool under .config
 dotnet ef migrations add Init -p Jaberah
 dotnet ef database update -p Jaberah
 dotnet run --project Jaberah
 ```
 
-واجهة Swagger على **جذر** الموقع (`http://localhost:5291/`) لأن `RoutePrefix` مضبوط
-على نص فارغ. وفي وضع التطوير تعمل على `/swagger` أيضًا، لأن الواجهة مسجَّلة مرتين
-في `Program.cs` — مرة داخل شرط `IsDevelopment` وأخرى بعده.
+Swagger is served at the site **root** (`http://localhost:5291/`) because
+`RoutePrefix` is set to an empty string. In Development it also answers on
+`/swagger`, because the UI is registered twice in `Program.cs` — once inside
+the `IsDevelopment` branch and once after it.
 
-`SeedData/DataSeeder.cs` يملأ القاعدة من ملفات JSON في `SeedData/`. نداؤه معطَّل
-بتعليق في `Program.cs` — فعّله عند الحاجة فقط.
+`SeedData/DataSeeder.cs` fills the database from the JSON files in `SeedData/`.
+Its call in `Program.cs` is commented out; enable it only when you need it.
 
-## الاختبارات
+## Tests
 
 ```bash
 dotnet test
 ```
 
-`Jaberah.Tests` يشغّل `JaberahDBContext` الحقيقي على SQLite في الذاكرة — بنفس
-التعيينات والفهارس والمرشّحات — ويغطّي فلاتر الصلاحيات، وقواعد كشف النظافة،
-وحصر الهوية، وتسجيل مهام Hangfire.
+`Jaberah.Tests` runs the real `JaberahDBContext` against SQLite in memory —
+same mappings, indexes and query filters — covering the authorisation filters,
+the cleaning roster rules, identity scoping, and Hangfire job registration.
 
-## المهام المجدولة
+## Scheduled work
 
-Hangfire يشغّل `MarkAbsentTeachersAsync` عند 23:59 بتوقيت الرياض: يعلّم المعلمين
-الذين لم يسجّلوا حضورًا غائبين، ويتخطّى الجمعة. التسجيل في `Jobs/RecurringJobs.cs`
-عبر `IRecurringJobManager` من الحقن — لا تستعمل `RecurringJob` الساكن هنا، فهو
-يعتمد على `JobStorage.Current` الذي لا يضبطه `AddHangfire` وسيرمي عند الإقلاع.
+Hangfire runs `MarkAbsentTeachersAsync` at 23:59 Riyadh time: it marks teachers
+who never checked in as absent, and skips Fridays. Registration lives in
+`Jobs/RecurringJobs.cs` and goes through `IRecurringJobManager` from DI — do not
+use the static `RecurringJob` API here. It reads `JobStorage.Current`, which
+`AddHangfire` does not set, and it will throw during startup.
 
-اللوحة على `/hangfire` للمدير فقط.
+The dashboard is at `/hangfire`, admin only.
 
-## السجلات
+## Logs
 
-`Middlewares/RequestResponseLoggingMiddleware` يكتب الطلبات ذات الرد **غير 2xx**
-فقط إلى `Logs/error-requests.log`، بعد تنقية الحقول الحساسة (كلمات المرور،
-التوكنات، مفتاح النشر) وتخطّي الحمولات الثنائية والكبيرة.
+`Middlewares/RequestResponseLoggingMiddleware` writes only requests whose
+response was **not** 2xx to `Logs/error-requests.log`, after redacting
+sensitive fields (passwords, tokens, the deploy key) and skipping binary and
+oversized payloads.
 
-يُقرأ عبر `GET /api/Logs` بحساب مدير، و`DELETE /api/Logs` يُفرغه.
+Read it through `GET /api/Logs` as an admin; `DELETE /api/Logs` clears it.
 
-## النشر
+## Deployment
 
-GitHub Actions ← MonsterASP.NET، وخادمان منفصلان:
+GitHub Actions to MonsterASP.NET, two separate servers:
 
-| الفرع | الوجهة |
+| Branch | Target |
 |---|---|
 | `master` | Server 1 |
-| `main-v2` | Server 2 — وهو الإنتاج الحالي |
+| `main-v2` | Server 2 — current production |
 
-الترتيب: بناء ← اختبار ← تحزيم (`publish`) ← رفع إلى الخادم. الاختبار قبل التحزيم
-عمدًا، فاختبار فاشل يوقف كل شيء قبل أن تُبنى حزمة النشر أصلًا.
+The order is build → test → publish → deploy. Tests run before publish on
+purpose, so a failing test stops everything before the deploy package is even
+produced.
 
-الخط يعمل على طلبات الدمج أيضًا، لكن خطوتي النشر محصورتان بـ `github.ref` فلا تعملان
-إلا على الفرعين أعلاه.
+The workflow also runs on pull requests, but both deploy steps are gated on
+`github.ref` and therefore only fire on the two branches above.
 
-### مفتاح نشر الـ APK
+### The APK deploy key
 
-`PUT /api/versions` يستقبل ملف الـ APK من خط نشر تطبيق الفلاتر، يرفعه إلى Dropbox،
-ويجعل رابطه رابط التحديث الرسمي لكل المستخدمين. هذه النقطة لا تملك توكن JWT (الخط
-ليس مستخدمًا)، فتحرسها ترويسة `X-Deploy-Key` تُقارَن بقيمة `DeployKey` من الإعدادات
-عبر تجزئة SHA-256 ومقارنة ثابتة الزمن.
+`PUT /api/versions` receives the APK from the Flutter release pipeline, uploads
+it to Dropbox, and makes that link the official update URL for every user. The
+pipeline has no JWT — it is not a user — so the endpoint is guarded by an
+`X-Deploy-Key` header compared against the `DeployKey` setting using SHA-256
+digests and a constant-time comparison.
 
-القيمة نفسها يجب أن توجد في مكانين: `DeployKey` في إعدادات الخادم، و `DEPLOY_KEY`
-في GitHub Secrets لمستودع الفلاتر. وإن لم تُضبط على الخادم ترفض النقطة كل رفع
-بـ 503 — تفشل مغلقة لا مفتوحة.
+The same value has to exist in two places: `DeployKey` in the server
+configuration, and `DEPLOY_KEY` in the GitHub Secrets of the Flutter
+repository. If it is not configured on the server the endpoint rejects every
+upload with 503 — it fails closed, not open.
 
-## أمور معروفة لم تُعالج بعد
+## Known rough edges
 
-- `builder.Host.UseSerilog()` مستدعى بلا تهيئة، فكل نداء `ILogger` في التطبيق يذهب
-  إلى العدم — بما فيه تسجيل الاستثناءات غير المعالَجة في `GlobalException.cs`.
-  الملف الوحيد الذي يُكتب فعلًا هو سجل الطلبات أعلاه.
-- الختم الزمني داخل سجل الطلبات يضيف ثلاث ساعات مرتين، فيتقدّم ست ساعات ويُعلَّم
-  `Z` كأنه UTC.
-- `AutoMapper 13.0.1` عليه تنبيه أمني ([GHSA-rvv3-g6hj-g44x](https://github.com/advisories/GHSA-rvv3-g6hj-g44x))،
-  والترقية إلى 14 كسر متعمَّد في الواجهة.
-- لا شيء في الـ CI يُقلع التطبيق فعليًا، فأعطال الإقلاع لا تظهر إلا بعد النشر.
+- `builder.Host.UseSerilog()` is called but never configured, so every `ILogger`
+  call in the application goes nowhere — including the unhandled-exception
+  logging in `GlobalException.cs`. The request log above is the only file that
+  is actually written.
+- The timestamp inside the request log adds three hours twice, so it runs six
+  hours fast and is then labelled `Z` as if it were UTC.
+- `AutoMapper 13.0.1` carries a security advisory
+  ([GHSA-rvv3-g6hj-g44x](https://github.com/advisories/GHSA-rvv3-g6hj-g44x));
+  moving to 14 is a deliberate breaking change.
+- Nothing in CI actually starts the application, so startup failures only show
+  up after a deploy.
