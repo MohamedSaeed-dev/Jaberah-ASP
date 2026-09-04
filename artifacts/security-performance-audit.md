@@ -2,9 +2,11 @@
 
 **Systems audited:** `MohamedSaeed-dev/Jaberah-ASP` (ASP.NET Core 9 REST API) and `MohamedSaeed-dev/Jaberah-Flutter` (Flutter mobile client)
 **Audit date:** 2026-09-04
-**Commits audited:** `Jaberah-ASP` @ `d76af61` (branch `main-v2`) · `Jaberah-Flutter` @ `7eaf11d` (branch `master`)
+**Commits audited:** `Jaberah-ASP` @ `d76af61` (branch `main-v2`) · `Jaberah-Flutter` @ `1bb83b0` (branch `main-v2`, app version 3.2.0)
+**Production API:** `https://jaberah-new.tryasp.net/api` — the deployment both `main-v2` branches target. A second, older deployment (`https://jaberah-new.tryasp.net/api`) is served from the `master` branches; every reproduction below is written against the production host.
 **Scope:** Full source of both repositories — authentication/authorization, all 12 API controllers, EF Core model and indexes, middleware pipeline, background jobs, external integrations (Firebase, Dropbox), CI/CD workflows, Android app configuration, and git history.
 **Nature of this engagement:** Audit only. No application code was changed. This report is the sole deliverable.
+**Revision 2 (branch correction):** the first pass reviewed the Flutter client on `master` @ `7eaf11d`. Production is `main-v2`, which is 23 commits ahead (`master` is a strict ancestor, with no commits of its own). Every client-side finding has been re-verified against `main-v2`: **SEC-017 is fixed there**, as are two Potential Risks; **SEC-003 is revised**, because the behaviour it describes turns out to be a feature the admin screen depends on. The backend was already audited on `main-v2` and is unchanged (`d76af61`, 0 new commits). See *Status on the production branch* below.
 
 > This single report covers both repositories. It is committed to `Jaberah-ASP` because the majority of findings are server-side; findings SEC-004, SEC-012, SEC-017 and the CI observations in the Appendix belong to `Jaberah-Flutter`.
 
@@ -37,8 +39,11 @@ No SQL, NoSQL, command or template injection was found. The only raw SQL in the 
 | Critical | 2 | SEC-001, SEC-002 |
 | High | 5 | SEC-003, SEC-004, SEC-005, SEC-006, SEC-007 |
 | Medium | 5 | SEC-008, SEC-009, SEC-010, SEC-011, SEC-012 |
-| Low | 6 | SEC-013, SEC-014, SEC-015, SEC-016, SEC-017, SEC-018 |
-| **Total** | **18** | |
+| Low | 5 | SEC-013, SEC-014, SEC-015, SEC-016, SEC-018 |
+| **Total open** | **17** | |
+| Resolved on `main-v2` | 1 | SEC-017 |
+
+IDs are stable across revisions: SEC-017 keeps its number and is retained below marked resolved, rather than being deleted and the rest renumbered.
 
 **Overall Security Risk: CRITICAL**
 
@@ -52,11 +57,27 @@ Justification: a publicly readable file yields a probable direct path to an admi
 | High | 1 | PERF-002 |
 | Medium | 6 | PERF-003, PERF-004, PERF-005, PERF-006, PERF-007, PERF-008 |
 | Low | 4 | PERF-009, PERF-010, PERF-011, PERF-012 |
-| **Total** | **12** | |
+| **Total open** | **12** | |
 
 **Overall Performance Risk: HIGH**
 
 Justification: two findings (PERF-001, PERF-002) are triggerable by any authenticated caller and scale with data volume rather than with request count, and PERF-002 fires on the single most-hit endpoint in the system. At the current data volume the API is unlikely to be visibly slow; both findings degrade sharply and non-linearly as records accumulate, and PERF-001 is directly weaponisable as a denial of service today.
+
+### Status on the production branch
+
+Re-verified against `Jaberah-Flutter` @ `1bb83b0` (`main-v2`) after the branch correction. The client has moved substantially since `master`: 23 commits, app version 2.0.1 → 3.2.0, new cleaning-log, daily-prayer, prayer-report and salary screens, biometric confirmation, request timeouts, and a refresh-token lock.
+
+**Already fixed on `main-v2` — no action needed:**
+
+| Item | Evidence on `main-v2` |
+|---|---|
+| SEC-017 — token in plaintext `SharedPreferences` | New `lib/api/tokenStorage.dart` stores it via `flutter_secure_storage` with `AndroidOptions(encryptedSharedPreferences: true)`, and migrates any legacy plaintext token on first read (`:28-37`). `pubspec.yaml:44` adds the dependency. |
+| Risk #4 — CI publish step sent no deploy key | `.github/workflows/flutter-build.yml:53-70` now sends `-H "X-Deploy-Key: ${{ secrets.DEPLOY_KEY }}"`, on separate `master` and `main-v2` publish steps, and the workflow gained `Analyze` and `Test` steps. |
+| Risk #5 — monthly-report client/server contract mismatch | Both call sites now send `fromDate`/`toDate` (`admin/monthlyReportController.dart:80`, `user/monthlyStudentsReports.dart:62`), matching the action signature. |
+
+**Re-verified as still present on `main-v2`:** SEC-004 (`android/app/build.gradle:46-52` unchanged — still `signingConfig = signingConfigs.debug`), SEC-012 (`AndroidManifest.xml` still carries `usesCleartextTraffic="true"`, `MANAGE_EXTERNAL_STORAGE` and `requestLegacyExternalStorage`; two biometric permissions were added), and the unencoded-`searchText` and in-memory-`CookieJar` items in Risk #9. Every server-side finding is unaffected — the backend was audited on `main-v2` at `d76af61`, which is still its head.
+
+**Revised by the branch correction:** SEC-003. On `master` the `groupId=0` all-groups path looked like an unintended sentinel bypass. On `main-v2` the admin report screen has an explicit «كل الحلقات» (all circles) option that omits `groupId` on purpose, so the capability is a feature and the finding is really that a **non-admin** can reach it. Severity is unchanged; the recommended fix is different, and PERF-001's remediation is corrected to match.
 
 ### Top 5 Most Important Issues
 
@@ -138,7 +159,7 @@ public async Task<IActionResult> Login([FromBody] LoginDTO model)
 1. `git clone https://github.com/MohamedSaeed-dev/Jaberah-ASP.git` — no credentials required.
 2. `cat Jaberah/SeedData/Teachers.json` — read name, phone number, role and hash for all 10 accounts.
 3. For each record, one `BCrypt.Verify(phoneNumber, hash)` call reveals whether the account is still on its default password.
-4. For any match, `POST https://jaberah.runasp.net/api/auth/login` with `{"username": "<TeacherName>", "password": "<PhoneNumber>", "fcmToken": "x"}` returns a valid access token with that account's role.
+4. For any match, `POST https://jaberah-new.tryasp.net/api/auth/login` with `{"username": "<TeacherName>", "password": "<PhoneNumber>", "fcmToken": "x"}` returns a valid access token with that account's role.
 5. Step 4 is unthrottled — see SEC-006.
 
 ### Recommended Remediation
@@ -259,17 +280,17 @@ With any teacher's access token (obtained legitimately or via SEC-001):
 ```bash
 # Read a group the caller does not teach — replace 3 with any group id
 curl -H "Authorization: Bearer $TEACHER_TOKEN" \
-  "https://jaberah.runasp.net/api/reports/semester-report?groupId=3&fromDate=2026-01-01&toDate=2026-05-01"
+  "https://jaberah-new.tryasp.net/api/reports/semester-report?groupId=3&fromDate=2026-01-01&toDate=2026-05-01"
 
 # Overwrite another group's student's exam marks — replace 47 with any student id
 curl -X POST -H "Authorization: Bearer $TEACHER_TOKEN" -H "Content-Type: application/json" \
   -d '{"studentId":47,"paperExam":20,"oralExam":10,"date":"2026-03-01T00:00:00"}' \
-  "https://jaberah.runasp.net/api/exams/monthly-exam"
+  "https://jaberah-new.tryasp.net/api/exams/monthly-exam"
 
 # Zero out another student's attendance and behaviour for a day
 curl -X POST -H "Authorization: Bearer $TEACHER_TOKEN" -H "Content-Type: application/json" \
   -d '{"studentId":47,"attendance":0,"behavior":0}' \
-  "https://jaberah.runasp.net/api/follow-students/attendance?date=2026-03-01T00:00:00"
+  "https://jaberah-new.tryasp.net/api/follow-students/attendance?date=2026-03-01T00:00:00"
 ```
 
 Both requests return `200 OK`. Only the caller's own token is needed; group ids 1–10 and student ids 1–122 are contiguous and, per SEC-001, published.
@@ -377,7 +398,7 @@ Note also that the deployed client never exercises the wide-range case: `lib/con
 ```bash
 # Any teacher token. groupId=0 skips the group filter entirely; the range spans all data.
 curl -H "Authorization: Bearer $TEACHER_TOKEN" \
-  "https://jaberah.runasp.net/api/reports/monthly-report?groupId=0&fromDate=0001-01-01&toDate=9999-12-31&take=1"
+  "https://jaberah-new.tryasp.net/api/reports/monthly-report?groupId=0&fromDate=0001-01-01&toDate=9999-12-31&take=1"
 ```
 
 `take=1` returns a one-element payload while the server has already loaded and allocated the entire dataset — which is what makes this cheap for the attacker and expensive for the server. Run 20 of these in parallel to observe pool starvation.
@@ -389,7 +410,7 @@ curl -H "Authorization: Bearer $TEACHER_TOKEN" \
    if (fromDate > toDate || (toDate - fromDate).TotalDays > 62)
        return BadRequest(new { message = "المدة يجب ان لا تتجاوز شهرين" });
    ```
-2. **Make `groupId` genuinely required** (`[FromQuery, Required] int groupId` plus `groupId <= 0 → BadRequest`), which also closes SEC-003.
+2. **Gate the all-groups path by role rather than removing it.** Note the correction in SEC-003: the omitted-`groupId` branch is a deliberate admin feature on the production client, so it cannot simply be made required. Make `groupId` an `int?`, restrict the institution-wide branch to admins, and scope a teacher's omitted-`groupId` request to their own circles. That keeps the heavy path in admin hands, where a bounded range and a query-level `take` make it affordable.
 3. **Push `take` into the query.** Ranking by `Total` requires the aggregates, so either compute the aggregate-only projection first, order and `Take` in SQL, then fetch the nested lesson lists for the surviving page — or drop `take` and paginate properly with `ToPagedListAsync` (`Jaberah/Helpers/PagedList.cs:30-42`), which is already used elsewhere in the codebase.
 4. **Drop the redundant `Include(s => s.Group)`** on line 131.
 5. **Set an explicit command timeout** — `x.UseSqlServer(cs, o => o.CommandTimeout(20))` at `Program.cs:25` — so a pathological query fails fast instead of occupying a connection.
@@ -408,18 +429,33 @@ curl -H "Authorization: Bearer $TEACHER_TOKEN" \
 
 ## High Findings
 
-## [SEC-003] `groupId=0` bypasses the group filter and turns `monthly-report` into a whole-database student export
+## [SEC-003] The admin-only "all circles" report path is reachable by any teacher
 
 - **Category:** Security
 - **Severity:** High
 - **Confidence:** High
-- **Location:** `Jaberah/Controllers/ReportsController.cs:100-128` (specifically line 110)
+- **Location:** `Jaberah/Controllers/ReportsController.cs:100-128` (specifically line 110) · client caller `Jaberah-Flutter/lib/controllers/admin/monthlyReportController.dart:76-87` (`main-v2`)
+
+> **Revised in revision 2.** On the `master` client this looked like an unintended sentinel bypass. Re-verification against the production `main-v2` client shows the all-groups path is a deliberate admin feature, so the finding is not "an accidental bypass exists" but "an intended admin-only capability has no role check". The severity is unchanged; the remediation is materially different, and the original advice to make `groupId` required would have broken the admin report screen.
 
 ### Description
 
 `GetMonthlyReport` treats `groupId` as optional by testing it against `default`. Because `groupId` is a non-nullable `int` bound from the query string, omitting it — or sending `groupId=0` — yields `0`, which *is* `default(int)`, so the entire `if` block that both validates the group and applies the `WHERE s.GroupId == groupId` filter is skipped. The query then runs against `_db.Students` unfiltered.
 
-This is distinct from SEC-002 in mechanism and in magnitude: SEC-002 lets a teacher read *another group's* report by naming it; SEC-003 lets them read *every group at once* without naming anything, and with no group-existence check to leave a trace of which id was probed.
+That is by design. The production admin client offers an explicit «كل الحلقات» (all circles) option and implements it by omitting the parameter, with a comment saying so:
+
+```dart
+// Jaberah-Flutter/lib/controllers/admin/monthlyReportController.dart:76-87 (main-v2)
+// عند اختيار «كل الحلقات» نرسل groupId كقيمة فارغة ليتم تمريرها null في السيرفر.
+final groupIdParam = isAllGroupsSelected ? null : '${selectedGroupId.value}';
+var url = "/$monthlyReportURL?fromDate=$fromDate&toDate=$toDate";
+if (!isAllStudentsTake) { url = "$url&take=${take.value}"; }
+if (groupIdParam != null) { url = "$url&groupId=$groupIdParam"; }
+```
+
+The defect is therefore the missing authorization, not the sentinel: `monthly-report` carries neither `[IsAdmin]` nor an ownership check (see SEC-002), so an institution-wide export intended for the administrator's screen is equally available to every teacher account. The user-facing client, by contrast, always sends a `groupId` (`user/monthlyStudentsReports.dart:62`) — the capability is not one the teacher UI exposes, only one the API grants.
+
+This remains distinct from SEC-002 in magnitude: SEC-002 lets a teacher read *another group's* report by naming it; SEC-003 lets them read *every group at once* without naming anything, and with no group-existence check to leave a trace of which id was probed.
 
 ### Evidence
 
@@ -460,25 +496,41 @@ The same line is the trigger for PERF-001's worst case.
 ```bash
 # groupId omitted entirely — no group id needs to be guessed
 curl -H "Authorization: Bearer $TEACHER_TOKEN" \
-  "https://jaberah.runasp.net/api/reports/monthly-report?fromDate=2026-01-01&toDate=2026-02-01"
+  "https://jaberah-new.tryasp.net/api/reports/monthly-report?fromDate=2026-01-01&toDate=2026-02-01"
 ```
 
 Returns `200 OK` with `data[]` covering every student in the database. Compare with `?groupId=3&...`, which returns only group 3 — confirming the filter is being skipped rather than the group simply being empty.
 
 ### Recommended Remediation
 
-Make the parameter required and validated, matching `GetBestStudentsForGroupReport`:
+**Do not** simply make `groupId` required — that is what the first revision of this report advised, and it would break the admin screen's «كل الحلقات» option. Keep the capability and gate it by role. Change `groupId` to `int?` so "absent" is explicit rather than a sentinel, then branch:
 
 ```csharp
 public async Task<IActionResult> GetMonthlyReport(
-    [FromQuery] int groupId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate, [FromQuery] int? take)
+    [FromQuery] int? groupId, [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate, [FromQuery] int? take)
 {
-    if (groupId <= 0) return BadRequest(new { message = "ادخل id صحيح" });
-    if (!await _db.Groups.AnyAsync(x => x.Id == groupId)) return BadRequest(new { message = "لاتوجد حلقة" });
-    if (!await this.CallerOwnsGroupAsync(groupId)) return Forbid();   // also closes SEC-002 for this action
+    if (groupId is { } gid)
+    {
+        if (gid <= 0) return BadRequest(new { message = "ادخل id صحيح" });
+        if (!await _db.Groups.AnyAsync(x => x.Id == gid)) return BadRequest(new { message = "لاتوجد حلقة" });
+        if (!await this.CallerOwnsGroupAsync(gid)) return Forbid();       // also closes SEC-002 here
+        studentsQb = studentsQb.Where(s => s.GroupId == gid);
+    }
+    else if (this.IsCurrentUserAdmin())
+    {
+        // «كل الحلقات» — admin-only, institution-wide
+    }
+    else
+    {
+        // a teacher's "all" means all of *their* circles, as CleaningLogsController:198-202 already does
+        var callerId = this.CurrentUser()!.Id;
+        studentsQb = studentsQb.Where(s => s.Group != null && s.Group.TeacherId == callerId);
+    }
 ```
 
-If an "all groups" view is genuinely required for admins, express it as a separate `[IsAdmin]` action with its own pagination rather than as a sentinel value on a teacher-accessible endpoint.
+Scoping a teacher's omitted-`groupId` request to their own circles rather than rejecting it is both safe and closer to what the word "all" means from their side of the screen. The date-range bound and query-level `take` from PERF-001 still apply, and matter *more* once the all-groups path is legitimately reachable.
+
+Cleaner still, if you prefer not to overload one action: keep `monthly-report` strictly single-group and add `[IsAdmin] GET /api/reports/monthly-report/all-groups` with its own pagination. Either shape is fine; what must not survive is an unauthenticated-by-role institution-wide export.
 
 ### Exploitability
 
@@ -681,16 +733,16 @@ if (!string.IsNullOrEmpty(model.OldPassword))
 # Teacher changes their own password to a single character. Returns 200.
 curl -X PUT -H "Authorization: Bearer $TEACHER_TOKEN" -H "Content-Type: application/json" \
   -d '{"oldPassword":"<current>","newPassword":"a"}' \
-  "https://jaberah.runasp.net/api/teachers/$MY_ID"
+  "https://jaberah-new.tryasp.net/api/teachers/$MY_ID"
 
 # Then log in with it — succeeds.
 curl -X POST -H "Content-Type: application/json" \
   -d '{"username":"<my name>","password":"a","fcmToken":"x"}' \
-  "https://jaberah.runasp.net/api/auth/login"
+  "https://jaberah-new.tryasp.net/api/auth/login"
 
 # Omitting newPassword yields 500 rather than 400.
 curl -X PUT -H "Authorization: Bearer $TEACHER_TOKEN" -H "Content-Type: application/json" \
-  -d '{"oldPassword":"<current>"}' "https://jaberah.runasp.net/api/teachers/$MY_ID"
+  -d '{"oldPassword":"<current>"}' "https://jaberah-new.tryasp.net/api/teachers/$MY_ID"
 ```
 
 ### Recommended Remediation
@@ -777,7 +829,7 @@ $ grep -rn "AddRateLimiter\|UseRateLimiter\|EnableRateLimiting" --include="*.cs"
 for i in $(seq 1 1000); do
   curl -s -o /dev/null -w "%{http_code} " -X POST -H "Content-Type: application/json" \
     -d "{\"username\":\"مدرسة ابن الوليد\",\"password\":\"7$(printf %08d $i)\",\"fcmToken\":\"x\"}" \
-    "https://jaberah.runasp.net/api/auth/login"
+    "https://jaberah-new.tryasp.net/api/auth/login"
 done
 ```
 
@@ -876,11 +928,11 @@ await _db.TeacherAttendances.AddAsync(new TeacherAttendance
 ```bash
 # Any teacher token; groupId 3 belongs to a different teacher. Returns 200.
 curl -X POST -H "Authorization: Bearer $TEACHER_TOKEN" -H "Content-Type: application/json" \
-  -d '{"groupId":3}' "https://jaberah.runasp.net/api/teachers-attendances/check-in"
+  -d '{"groupId":3}' "https://jaberah-new.tryasp.net/api/teachers-attendances/check-in"
 
 # Confirm it landed, as the admin (or via the caller's own for-month view)
 curl -H "Authorization: Bearer $ADMIN_TOKEN" \
-  "https://jaberah.runasp.net/api/teachers-attendances/for-month-report?fromDate=2026-09-01&toDate=2026-09-30"
+  "https://jaberah-new.tryasp.net/api/teachers-attendances/for-month-report?fromDate=2026-09-01&toDate=2026-09-30"
 ```
 
 Note the caller's own `for-day`/`for-month` views enumerate `teacher.Groups` and so will not display the foreign-group record — it is visible only in the admin report, which makes the tampering less likely to be noticed by the perpetrator's own screen.
@@ -973,7 +1025,7 @@ Load-test the anonymous endpoint and watch the socket table:
 
 ```bash
 # 2000 requests, 50 concurrent — no auth needed
-ab -n 2000 -c 50 "https://jaberah.runasp.net/api/versions?version=2.0.1"
+ab -n 2000 -c 50 "https://jaberah-new.tryasp.net/api/versions?version=2.0.1"
 # On the host: netstat -an | find /c "TIME_WAIT"   (Windows)
 ```
 
@@ -1066,16 +1118,16 @@ Books appear in the monthly report for a group (`ReportsController.cs:116-127` p
 # Any teacher token. Create a book on a group the caller does not teach:
 curl -X POST -H "Authorization: Bearer $TEACHER_TOKEN" -H "Content-Type: application/json" \
   -d '{"title":"injected","from":"1","to":"2","date":"2026-09-01"}' \
-  "https://jaberah.runasp.net/api/groups/3/books"
+  "https://jaberah-new.tryasp.net/api/groups/3/books"
 
 # Permanently delete any book by id:
 curl -X DELETE -H "Authorization: Bearer $TEACHER_TOKEN" \
-  "https://jaberah.runasp.net/api/groups/books/1"
+  "https://jaberah-new.tryasp.net/api/groups/books/1"
 
 # Trigger a 500 with over-long input:
 curl -X PUT -H "Authorization: Bearer $TEACHER_TOKEN" -H "Content-Type: application/json" \
   -d "{\"title\":\"$(python3 -c 'print("A"*300)')\"}" \
-  "https://jaberah.runasp.net/api/groups/books/2"
+  "https://jaberah-new.tryasp.net/api/groups/books/2"
 ```
 
 ### Recommended Remediation
@@ -1166,10 +1218,10 @@ Note also `Expires = DateTime.UtcNow.AddHours(3).AddDays(days)` — the `+3h` sh
 # 1. Log in and keep only the accessToken.
 ACCESS=$(curl -s -X POST -H "Content-Type: application/json" \
   -d '{"username":"...","password":"...","fcmToken":"x"}' \
-  https://jaberah.runasp.net/api/auth/login | jq -r .accessToken)
+  https://jaberah-new.tryasp.net/api/auth/login | jq -r .accessToken)
 
 # 2. Present the ACCESS token as the refreshToken cookie — it is accepted.
-curl -s -X POST -b "refreshToken=$ACCESS" https://jaberah.runasp.net/api/auth/refresh
+curl -s -X POST -b "refreshToken=$ACCESS" https://jaberah-new.tryasp.net/api/auth/refresh
 # → 200 {"accessToken":"<new 7-day token>"}  + Set-Cookie: refreshToken=<new 30-day token>
 ```
 
@@ -1360,17 +1412,17 @@ Note how much better the neighbouring cleaning-logs module handles the identical
 # (a) duplicate PrayerId in one request → 500
 curl -X POST -H "Authorization: Bearer $TEACHER_TOKEN" -H "Content-Type: application/json" \
   -d '{"studentId":1,"date":"2026-09-04","prayers":[{"prayerId":1,"rakatCount":2,"isInGroup":true},{"prayerId":1,"rakatCount":2,"isInGroup":false}]}' \
-  "https://jaberah.runasp.net/api/prayers/upsert-daily"
+  "https://jaberah-new.tryasp.net/api/prayers/upsert-daily"
 
 # (a) non-existent student → FK violation → 500
 curl -X POST -H "Authorization: Bearer $TEACHER_TOKEN" -H "Content-Type: application/json" \
   -d '{"studentId":999999,"date":"2026-09-04","prayers":[{"prayerId":1,"rakatCount":2,"isInGroup":true}]}' \
-  "https://jaberah.runasp.net/api/prayers/upsert-daily"
+  "https://jaberah-new.tryasp.net/api/prayers/upsert-daily"
 
 # (c) unbounded mid-final grade → 200, then a nonsense semester report
 curl -X POST -H "Authorization: Bearer $TEACHER_TOKEN" -H "Content-Type: application/json" \
   -d '1000000000' \
-  "https://jaberah.runasp.net/api/exams/mid-final-exam?studentId=1&fromDate=2026-01-01&toDate=2026-05-01"
+  "https://jaberah-new.tryasp.net/api/exams/mid-final-exam?studentId=1&fromDate=2026-01-01&toDate=2026-05-01"
 ```
 
 ### Recommended Remediation
@@ -1527,7 +1579,7 @@ The `IsLoggableBody` and `Redact` helpers (lines 69-109) are well done — they 
 # Watch working set while requesting a large report repeatedly
 for i in $(seq 1 20); do
   curl -s -o /dev/null -H "Authorization: Bearer $T" \
-    "https://jaberah.runasp.net/api/reports/monthly-report?groupId=0&fromDate=2020-01-01&toDate=2030-01-01" &
+    "https://jaberah-new.tryasp.net/api/reports/monthly-report?groupId=0&fromDate=2020-01-01&toDate=2030-01-01" &
 done; wait
 ```
 
@@ -1613,15 +1665,15 @@ var cacheKey = withoutTeacher ? $"{CacheKey}_WithoutTeacher" : CacheKey;
 
 ```bash
 # Poison the shared cache (any authenticated token)
-curl -H "Authorization: Bearer $T" "https://jaberah.runasp.net/api/prayers?pageNumber=1&pageSize=1"
+curl -H "Authorization: Bearer $T" "https://jaberah-new.tryasp.net/api/prayers?pageNumber=1&pageSize=1"
 # → [{"id":1,"nameAr":"الفجر",...}]
 
 # Every other user, with default parameters, now gets the same single-element array
-curl -H "Authorization: Bearer $OTHER_T" "https://jaberah.runasp.net/api/prayers"
+curl -H "Authorization: Bearer $OTHER_T" "https://jaberah-new.tryasp.net/api/prayers"
 # → [{"id":1,...}]   (expected: all five prayers)
 
 # And the negative-offset 500
-curl -H "Authorization: Bearer $T" "https://jaberah.runasp.net/api/prayers?pageNumber=0"
+curl -H "Authorization: Bearer $T" "https://jaberah-new.tryasp.net/api/prayers?pageNumber=0"
 ```
 
 ### Recommended Remediation
@@ -1727,11 +1779,11 @@ Also note that `PagedList<T>` divides by `pageSize` when computing `TotalPages` 
 
 ```bash
 T="Authorization: Bearer $ADMIN_TOKEN"
-curl -H "$T" "https://jaberah.runasp.net/api/students?pageSize=1000000"   # whole table
-curl -H "$T" "https://jaberah.runasp.net/api/students?pageNumber=0"       # 500 (negative OFFSET)
-curl -H "$T" "https://jaberah.runasp.net/api/students?pageSize=0"         # 500 (divide by zero)
+curl -H "$T" "https://jaberah-new.tryasp.net/api/students?pageSize=1000000"   # whole table
+curl -H "$T" "https://jaberah-new.tryasp.net/api/students?pageNumber=0"       # 500 (negative OFFSET)
+curl -H "$T" "https://jaberah-new.tryasp.net/api/students?pageSize=0"         # 500 (divide by zero)
 curl -H "Authorization: Bearer $TEACHER_TOKEN" \
-     "https://jaberah.runasp.net/api/notifications?pageSize=1000000"      # teacher-reachable
+     "https://jaberah-new.tryasp.net/api/notifications?pageSize=1000000"      # teacher-reachable
 ```
 
 ### Recommended Remediation
@@ -1824,13 +1876,13 @@ Every non-2xx response in the entire application appends a line here (`RequestRe
 ```bash
 # Generate log volume cheaply — each 400 appends a line
 for i in $(seq 1 20000); do
-  curl -s -o /dev/null "https://jaberah.runasp.net/api/versions?version=x" &
+  curl -s -o /dev/null "https://jaberah-new.tryasp.net/api/versions?version=x" &
   [ $((i % 50)) -eq 0 ] && wait
 done
 
 # Then time the admin log page
 time curl -s -o /dev/null -H "Authorization: Bearer $ADMIN_TOKEN" \
-  "https://jaberah.runasp.net/api/Logs?pageNumber=1&pageSize=10"
+  "https://jaberah-new.tryasp.net/api/Logs?pageNumber=1&pageSize=10"
 ```
 
 Response time grows with accumulated file size even though the returned page is always 10 entries.
@@ -1937,13 +1989,13 @@ Note this call also uses `out var groups`, so `groups` is typed `object` and the
 ```bash
 A="Authorization: Bearer $ADMIN_TOKEN"
 # 1. Populate the cache
-curl -H "$A" "https://jaberah.runasp.net/api/groups/has-no-teacher-data"   # note which groups appear
+curl -H "$A" "https://jaberah-new.tryasp.net/api/groups/has-no-teacher-data"   # note which groups appear
 # 2. Assign one of those groups to a new teacher
 curl -X POST -H "$A" -H "Content-Type: application/json" \
   -d '{"teacherName":"معلم تجريبي","phoneNumber":"711111111","groupsId":[<id from step 1>]}' \
-  "https://jaberah.runasp.net/api/teachers"
+  "https://jaberah-new.tryasp.net/api/teachers"
 # 3. Re-read — the group is still listed as having no teacher
-curl -H "$A" "https://jaberah.runasp.net/api/groups/has-no-teacher-data"
+curl -H "$A" "https://jaberah-new.tryasp.net/api/groups/has-no-teacher-data"
 ```
 
 ### Recommended Remediation
@@ -2020,7 +2072,7 @@ There is a genuine benefit to the DB read that should not be discarded: it makes
 Enable EF command logging (or attach SQL Server Profiler) and issue a single simple authenticated request:
 
 ```bash
-curl -H "Authorization: Bearer $T" "https://jaberah.runasp.net/api/prayers"
+curl -H "Authorization: Bearer $T" "https://jaberah-new.tryasp.net/api/prayers"
 ```
 
 Two queries are logged: `SELECT TOP(1) ... FROM [Teachers] WHERE [Id] = @id` from the filter, then the action's own query — even though the second is served from cache.
@@ -2101,11 +2153,11 @@ Unhandled `ArgumentOutOfRangeException` → `GlobalExceptionMiddleware` → 500 
 
 ```bash
 curl -H "Authorization: Bearer $ADMIN_TOKEN" \
-  "https://jaberah.runasp.net/api/reports/best-students-report?year=2026&month=13"            # 500
+  "https://jaberah-new.tryasp.net/api/reports/best-students-report?year=2026&month=13"            # 500
 curl -H "Authorization: Bearer $ADMIN_TOKEN" \
-  "https://jaberah.runasp.net/api/teachers-salaries/for-month?year=99999&month=1"             # 500
+  "https://jaberah-new.tryasp.net/api/teachers-salaries/for-month?year=99999&month=1"             # 500
 curl -H "Authorization: Bearer $TEACHER_TOKEN" \
-  "https://jaberah.runasp.net/api/prayers/monthly-report?date=2026-09-01&daysInMonth=999999999"  # 500
+  "https://jaberah-new.tryasp.net/api/prayers/monthly-report?date=2026-09-01&daysInMonth=999999999"  # 500
 ```
 
 ### Recommended Remediation
@@ -2140,9 +2192,9 @@ Anyone on the internet can force a 500 on the API's most-called endpoint, with n
 ### Reproduction
 
 ```bash
-curl -i "https://jaberah.runasp.net/api/versions?version=abc"          # 500
-curl -i "https://jaberah.runasp.net/api/versions?version=99999999999"  # 500 (overflow)
-curl -i "https://jaberah.runasp.net/api/versions?version="             # 500 (empty segment)
+curl -i "https://jaberah-new.tryasp.net/api/versions?version=abc"          # 500
+curl -i "https://jaberah-new.tryasp.net/api/versions?version=99999999999"  # 500 (overflow)
+curl -i "https://jaberah-new.tryasp.net/api/versions?version="             # 500 (empty segment)
 ```
 
 ### Recommended Remediation
@@ -2191,11 +2243,27 @@ The financial record loses its meaning: an admin viewing `GET /api/teachers-sala
 ### Reproduction
 
 ```bash
-curl -H "Authorization: Bearer $TEACHER_TOKEN" "https://jaberah.runasp.net/api/teachers-salaries/my-salaries?year=2026"
+curl -H "Authorization: Bearer $TEACHER_TOKEN" "https://jaberah-new.tryasp.net/api/teachers-salaries/my-salaries?year=2026"
 curl -X PATCH -H "Authorization: Bearer $TEACHER_TOKEN" \
-  "https://jaberah.runasp.net/api/teachers-salaries/my-salaries/<id>/mark-as-paid"
+  "https://jaberah-new.tryasp.net/api/teachers-salaries/my-salaries/<id>/mark-as-paid"
 # Then read the admin view: IsPaid is now true with no admin action.
 ```
+
+### Note on the production client's biometric gate
+
+`main-v2` adds a biometric confirmation in front of this call, which is a genuine improvement to the *intent* signal — but it is not a control on the API:
+
+```dart
+// Jaberah-Flutter/lib/controllers/user/mySalaryController.dart:84-96 (main-v2)
+final canUseBiometrics = await biometric.canUseBiometrics();
+if (canUseBiometrics) {
+  final isAuthenticated = await biometric.authenticate(reason: '...');
+  if (!isAuthenticated) { messageSnackBar("فشل التحقق من البصمة..."); return; }
+}
+await markAsPaid(id);
+```
+
+Two reasons it does not change this finding's severity or remediation: the gate is skipped entirely when the device has no enrolled biometrics (`if (canUseBiometrics)`), and it lives in the client, so `PATCH /api/teachers-salaries/my-salaries/{id}/mark-as-paid` remains directly callable with nothing but a bearer token. The server-side fix below is still the one that matters.
 
 ### Recommended Remediation
 
@@ -2238,15 +2306,15 @@ Separately, `app.UseHsts()` is absent, and no middleware sets `X-Content-Type-Op
 
 Low, for two reasons. The API serves JSON to a mobile client, so header-based browser protections have limited bearing — though Swagger UI *is* an HTML page served from this origin, which makes a CSP and `X-Frame-Options` relevant to it. And the API surface Swagger discloses is already public in `Jaberah-Flutter/lib/api/URLs.dart`, so the marginal disclosure to an authenticated teacher is minimal. The real concern is **fragility**: the only thing preventing anonymous exposure of the full API contract at the site root is the relative order of two `Use*` calls. Moving `UseSwagger()` above `UseAuthorization()` — a natural-looking tidy-up — would silently publish it.
 
-Missing HSTS means the first request to `http://jaberah.runasp.net` is redirected rather than refused, leaving a one-request stripping window. The redirect is configured (`:159`) but the policy is not pinned.
+Missing HSTS means the first request to `http://jaberah-new.tryasp.net` is redirected rather than refused, leaving a one-request stripping window. The redirect is configured (`:159`) but the policy is not pinned.
 
 ### Reproduction
 
 ```bash
-curl -i "https://jaberah.runasp.net/"                        # expect 401 (fallback policy)
-curl -i "https://jaberah.runasp.net/swagger/v1/swagger.json" # expect 401
-curl -i -H "Authorization: Bearer $TEACHER_TOKEN" "https://jaberah.runasp.net/swagger/v1/swagger.json"  # expect 200
-curl -sI "https://jaberah.runasp.net/api/versions?version=2.0.1" | grep -i "strict-transport\|x-content-type"  # absent
+curl -i "https://jaberah-new.tryasp.net/"                        # expect 401 (fallback policy)
+curl -i "https://jaberah-new.tryasp.net/swagger/v1/swagger.json" # expect 401
+curl -i -H "Authorization: Bearer $TEACHER_TOKEN" "https://jaberah-new.tryasp.net/swagger/v1/swagger.json"  # expect 200
+curl -sI "https://jaberah-new.tryasp.net/api/versions?version=2.0.1" | grep -i "strict-transport\|x-content-type"  # absent
 ```
 
 Confidence is Medium specifically on the anonymous behaviour: the fallback-policy-without-endpoint reasoning is documented ASP.NET Core behaviour and is what the existing Hangfire comments depend on, but it is worth confirming with the first two curls above before deciding this is Low rather than High.
@@ -2257,10 +2325,14 @@ Delete the unconditional block at `:170-181` and keep only the development-guard
 
 ---
 
-## [SEC-017] Access token stored unencrypted in `SharedPreferences`
+## [SEC-017] Access token stored unencrypted in `SharedPreferences` — RESOLVED on `main-v2`
 
 - **Category:** Security · **Severity:** Low · **Confidence:** High
-- **Location:** `Jaberah-Flutter/lib/controllers/authController.dart:39-46` · read at `Jaberah-Flutter/lib/api/Dio.dart:32-37`
+- **Status:** **Fixed on the production branch.** Retained for the record; excluded from the open-findings counts.
+- **Location (as found on `master` @ `7eaf11d`):** `Jaberah-Flutter/lib/controllers/authController.dart:39-46` · read at `Jaberah-Flutter/lib/api/Dio.dart:32-37`
+- **Fixed at:** `Jaberah-Flutter/lib/api/tokenStorage.dart` (`main-v2` @ `1bb83b0`)
+
+> This finding came from the first pass, which reviewed `master`. It does not apply to production.
 
 ### Description & Evidence
 
@@ -2285,9 +2357,30 @@ Combined with SEC-009 (tokens are non-revocable and self-renewing), a token extr
 
 On a rooted device or emulator: `adb shell run-as com.example.jaberah cat /data/data/com.example.jaberah/shared_prefs/FlutterSharedPreferences.xml` — the token is readable in the clear.
 
-### Recommended Remediation
+### Resolution on `main-v2`
 
-Store the token with `flutter_secure_storage` (Android Keystore / iOS Keychain) instead of `SharedPreferences`; keep only non-sensitive UI state in preferences. Combined with the shortened access-token lifetime recommended in SEC-009, the window of value for a stolen token shrinks from 7 days to minutes. — *OWASP MASVS-STORAGE-1; CWE-312: Cleartext Storage of Sensitive Information*
+`main-v2` introduces `lib/api/tokenStorage.dart`, which is exactly the recommended fix:
+
+```dart
+// Jaberah-Flutter/lib/api/tokenStorage.dart:14-18, 40-50 (main-v2)
+static const _key = 'accessToken';
+static const FlutterSecureStorage _secure = FlutterSecureStorage(
+  aOptions: AndroidOptions(encryptedSharedPreferences: true),
+);
+static Future<void> write(String token) async {
+  if (await _writeSecure(token)) {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key);          // no plaintext copy left behind
+    return;
+  }
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_key, token);  // documented fallback
+}
+```
+
+`read()` also migrates a legacy plaintext token into the encrypted store and deletes the old copy (`:28-37`), so upgrading devices are cleaned up rather than logged out, and `Dio.dart:42` reads through it. There is a deliberate fallback to `SharedPreferences` when the platform keystore throws, with a comment explaining the trade-off (a corrupt Keystore after an OS upgrade would otherwise sign the user out). That is a reasonable call and leaves the affected device no worse than before, but it does mean the plaintext path still exists on devices where the keystore fails; if you want to close it completely, treat a keystore failure as "re-authenticate" instead of "store in the clear". Nothing further is required for this finding.
+
+The pairing recommendation still stands on its own merits: combined with the shortened access-token lifetime in SEC-009, the window of value for a stolen token shrinks from 7 days to minutes. — *OWASP MASVS-STORAGE-1; CWE-312: Cleartext Storage of Sensitive Information*
 
 ---
 
@@ -2504,7 +2597,7 @@ _db.SoftDelete(group);
 
 `FindAsync` does not load the `Students` collection, so assigning `null` changes nothing and EF detects no modification. Students therefore retain a `GroupId` pointing at a soft-deleted group: they will not appear in `GET /api/students?withoutGroup=true` (which tests `!x.GroupId.HasValue`, `StudentsController.cs:29`) and so cannot be found for reassignment. `DeleteStudent` handles the mirror case correctly by setting `student.GroupId = null` explicitly (`StudentsController.cs:140`). **Check:** delete a group with students, then query `?withoutGroup=true`. The fix is `await _db.Students.Where(s => s.GroupId == groupId).ExecuteUpdateAsync(s => s.SetProperty(x => x.GroupId, (int?)null));` before the soft delete.
 
-### 4. The Flutter release pipeline cannot publish: the deploy key is not sent
+### 4. RESOLVED on `main-v2` — the Flutter release pipeline was not sending the deploy key
 
 ```yaml
 # Jaberah-Flutter/.github/workflows/flutter-build.yml:41-46
@@ -2516,11 +2609,29 @@ _db.SoftDelete(group);
     echo "Response from backend: $response"
 ```
 
-`PUT /api/versions` is guarded by `RequireDeployKeyAttribute`, which requires an `X-Deploy-Key` header matching the `DeployKey` setting and returns 401 without it (`Jaberah/Middlewares/RequireDeployKey.cs:30-36`) — or 503 if no key is configured (`:24-28`). The workflow sends no such header. Because `curl` is invoked without `--fail`, its exit code is 0 regardless, the step succeeds, and the workflow reports green while having published nothing. **Check:** inspect the last run's "Response from backend" output — it should read `Unauthorized`. Fix by adding `-H "X-Deploy-Key: ${{ secrets.DEPLOY_KEY }}"` and `--fail-with-body`, and store `DEPLOY_KEY` as a repository secret matching the server's `DeployKey`.
+The snippet above is from `master`. `PUT /api/versions` is guarded by `RequireDeployKeyAttribute`, which requires an `X-Deploy-Key` header matching the `DeployKey` setting and returns 401 without it (`Jaberah/Middlewares/RequireDeployKey.cs:30-36`) — or 503 if no key is configured (`:24-28`), and `master`'s workflow sends no such header.
 
-### 5. The monthly-report client/server contract does not match
+**On `main-v2` this is already fixed.** The workflow now has separate publish steps per branch, each sending the key, and gained `Analyze` and `Test` steps:
 
-`Jaberah-Flutter/lib/controllers/admin/monthlyReportController.dart:34` and `lib/controllers/user/monthlyStudentsReports.dart:31` both request `?groupId=…&year=…&month=…`, but the action signature is `GetMonthlyReport(int groupId, DateTime fromDate, DateTime toDate, int? take)` (`ReportsController.cs:101`). `year` and `month` bind to nothing; `fromDate`/`toDate` bind to `default`, which the guard at `:103-104` rejects with 400. This suggests the monthly-report screen is currently non-functional against this server version. It does not affect SEC-003 or PERF-001, both of which concern hand-crafted requests. **Check:** open the monthly report screen and observe whether the Arabic "enter a valid year and month" message appears. Note that the older `JaberahApp-Server` (TypeScript, private) may have accepted `year`/`month`, in which case this is migration drift.
+```yaml
+# Jaberah-Flutter/.github/workflows/flutter-build.yml:62-70 (main-v2)
+- name: Update Version in Backend (MAIN)
+  if: github.ref == 'refs/heads/main-v2'
+  run: |
+    response=$(curl -X PUT "${{ secrets.BACKEND_API_V2 }}?version=${{ env.VERSION }}" \
+      -H "X-Deploy-Key: ${{ secrets.DEPLOY_KEY }}" \
+      -H "Content-Type: multipart/form-data" \
+      -F "apkFile=@build/app/outputs/flutter-apk/jaberah-${VERSION}.apk")
+    echo "Response from backend: $response"
+```
+
+One residual item, worth 30 seconds: `curl` still runs without `--fail`, so a 401, a 503 or a 500 from the backend leaves the step green and the failure visible only in the echoed body. Add `--fail-with-body` so a publish failure actually fails the run. Confirm `DEPLOY_KEY` and `BACKEND_API_V2` are set as repository secrets and that `BACKEND_API_V2` points at the production host.
+
+### 5. RESOLVED on `main-v2` — the monthly-report client/server contract did not match
+
+On `master`, `lib/controllers/admin/monthlyReportController.dart:34` and `lib/controllers/user/monthlyStudentsReports.dart:31` both requested `?groupId=…&year=…&month=…`, while the action signature is `GetMonthlyReport(int groupId, DateTime fromDate, DateTime toDate, int? take)` (`ReportsController.cs:101`) — so `year`/`month` bound to nothing and the guard at `:103-104` returned 400. That was migration drift from the older `JaberahApp-Server` (TypeScript, private), which is still referenced as `server_node` in `URLs.dart:3`.
+
+**On `main-v2` both call sites send `fromDate`/`toDate`** (`admin/monthlyReportController.dart:80`, `user/monthlyStudentsReports.dart:62`), matching the action. Nothing to do. It never affected SEC-003 or PERF-001, which concern hand-crafted requests.
 
 ### 6. Dependency currency could not be verified
 
@@ -2534,11 +2645,13 @@ No .NET SDK was available in the audit environment, so `dotnet list package --vu
 
 125 files under `Jaberah-Flutter/android/app/.cxx/` (CMake configuration output from a May 2025 build) are tracked. No security impact; it inflates every clone and produces noisy diffs. Add `android/app/.cxx/` to `.gitignore` and `git rm -r --cached` it.
 
-### 9. Client-side robustness notes (Flutter)
+### 9. Client-side robustness notes (Flutter) — re-verified on `main-v2`
 
-- **`CookieJar()` is in-memory** (`lib/api/Dio.dart:17`), not `PersistCookieJar`, so the `refreshToken` cookie is discarded when the app process ends. The refresh flow at `:41-69` can therefore only succeed within a single session; after a restart with an expired access token, `_refreshToken()` returns null and the user is sent to the login screen. Given SEC-009 recommends shortening the access-token lifetime, this needs fixing first or the UX will regress badly. Use `PersistCookieJar` with a directory from `path_provider`.
-- **`searchText` is interpolated into URLs unencoded** (e.g. `studentsController.dart:52`, `groupStudentsController.dart:55`). A name containing `&`, `#` or `+` will corrupt the client's own query string. Use `Uri(queryParameters: …)` or Dio's `queryParameters` option rather than string interpolation.
-- **Two `Dio` instances are constructed per retry** (`lib/api/Dio.dart:72, 93`), each with its own connection pool, on every 401. Reuse the single configured client.
+`main-v2` fixed several items in this group on its own: request timeouts are now configured (`lib/api/Dio.dart:18-19`), concurrent 401s are serialised behind a refresh lock instead of stampeding (`:33-34, 63-95`), logout clears the cookie jar and the encrypted store (`:172-183`), and a non-JSON error body no longer crashes the app (`apiErrorMessage`, covered by `test/api_error_message_test.dart`). What remains:
+
+- **`CookieJar()` is still in-memory** (`lib/api/Dio.dart:21` on `main-v2`), not `PersistCookieJar`, so the `refreshToken` cookie is discarded when the app process ends. The refresh flow can therefore only succeed within a single session; after a restart with an expired access token, `_refreshToken()` returns null and `_logout()` sends the user to the login screen. Given SEC-009 recommends shortening the access-token lifetime, this needs fixing first or the UX will regress badly. Use `PersistCookieJar` with a directory from `path_provider`.
+- **`searchText` is still interpolated into URLs unencoded** (`studentsController.dart:52`, `teachersController.dart:49`, `groupStudentsController.dart:60` on `main-v2`). A name containing `&`, `#` or `+` will corrupt the client's own query string. Use Dio's `queryParameters` option rather than string interpolation — the two new cleaning-log controllers already use `Uri.encodeQueryComponent`, so the pattern exists in the codebase and just needs applying consistently.
+- **Two `Dio` instances are still constructed per retry** (`lib/api/Dio.dart:108, 138` on `main-v2`), each with its own connection pool, on every 401. Reuse the single configured client.
 
 ### 10. Timezone handling is consistent but fragile
 
@@ -2558,7 +2671,7 @@ These address active exposure. Steps 1 and 2 should not wait on a release cycle.
 |---|---|---|---|
 | 1 | **Rotate all 10 teacher passwords** to individually generated random values, delivered out of band. Do this **before** touching the repository, so rotation is not signalled by a commit. | SEC-001 | 1 h |
 | 2 | **Make both repositories private**, then purge `SeedData/Teachers.json` and `SeedData/Students.json` from working tree and history and request cache expiry from GitHub Support. Treat the data as already copied. | SEC-001 | 2–3 h |
-| 3 | **Add ownership checks** to the 12 endpoints listed in SEC-002, and make `groupId` required on `monthly-report`. This is the single highest-value code change in this report. | SEC-002, SEC-003 | 1 day |
+| 3 | **Add ownership checks** to the 12 endpoints listed in SEC-002, and role-gate `monthly-report`'s all-groups path (admins institution-wide, teachers scoped to their own circles — *not* `groupId` required, which would break the admin screen). This is the single highest-value code change in this report. | SEC-002, SEC-003 | 1 day |
 | 4 | **Add the missing short-circuit block** to `UpdateTeacherValidation.cs` and fix the `&&` → single-value length test. Four lines. | SEC-005 | 15 min |
 | 5 | **Bound the report date ranges** (≤62 days for monthly, ≤1 semester for semester) and set a `CommandTimeout`. | PERF-001 | 2 h |
 | 6 | **Add `AddRateLimiter` / `UseRateLimiter`** with a strict policy on `/api/auth/*` and a loose global policy. | SEC-006 | 2 h |
@@ -2573,7 +2686,7 @@ These address active exposure. Steps 1 and 2 should not wait on a release cycle.
 | 10 | **Generate a release keystore, change the package name off `com.example.*`, wire signing into CI**, and publish an APK SHA-256 that the client verifies. | SEC-004 | 1 day |
 | 11 | **Add `[IsAdmin]` at controller level as the default** and remove it only from actions with an explicit ownership check, so a forgotten attribute fails closed. Extend `Jaberah.Tests` with a `cannot_touch_another_groups_student` case per module. | SEC-002 (structural) | 2 days |
 | 12 | **Add authorization to the three book endpoints** and switch `DeleteBook` to a soft delete. | SEC-008 | 2 h |
-| 13 | **Introduce token types, refresh-token rotation with a revocation store, and a `SecurityStamp`** on `Teacher`; shorten the access token to hours. Fix the `AddHours(3)` expiry arithmetic. Fix `PersistCookieJar` on the client at the same time. | SEC-009, SEC-017, Risk #9 | 3 days |
+| 13 | **Introduce token types, refresh-token rotation with a revocation store, and a `SecurityStamp`** on `Teacher`; shorten the access token to hours. Fix the `AddHours(3)` expiry arithmetic. Switch the client to `PersistCookieJar` at the same time — with a short access token, the in-memory jar (Risk #9) would force a re-login on every app restart. | SEC-009, Risk #9 | 3 days |
 | 14 | **Clamp pagination inside `PagedList`/`PaginationDTO`** and at the four inline sites. | PERF-005 | 3 h |
 | 15 | **Validate `year`/`month`/`daysInMonth`; derive `daysInMonth` server-side.** Fix the `missedPrayers` unit mismatch and remove the duplicated `AverageCommitmentPercentage`. | SEC-013 | 4 h |
 | 16 | **Replace `CompareVersions` with `System.Version.TryParse`** and return 400 on malformed input. | SEC-014 | 30 min |
@@ -2582,8 +2695,8 @@ These address active exposure. Steps 1 and 2 should not wait on a release cycle.
 | 19 | **Move report PDFs to app-private storage**; drop the three storage permissions, `requestLegacyExternalStorage` and `usesCleartextTraffic`. | SEC-012 | 1 day |
 | 20 | **Stop buffering responses** in the logging middleware; bound `EnableBuffering`; put `GlobalExceptionMiddleware` outermost. | PERF-003 | 4 h |
 | 21 | **Fix the `allPrayers` cache key** (or drop the pagination); centralise cache invalidation across the three controllers. | PERF-004, PERF-007 | 4 h |
-| 22 | **Add `X-Deploy-Key` and `--fail-with-body`** to the Flutter workflow's publish step; confirm the last release actually published. | Risk #4 | 30 min |
-| 23 | **Reconcile the monthly-report client/server contract.** | Risk #5 | 2 h |
+| 22 | **Add `--fail-with-body`** to the Flutter workflow's publish steps so a rejected publish fails the run (the `X-Deploy-Key` header is already present on `main-v2`); confirm `BACKEND_API_V2` points at the production host. | Risk #4 | 15 min |
+| 23 | **Port the `main-v2` client fixes to `master`** if that branch and its `jaberah.runasp.net` deployment are still in use — secure token storage, the deploy-key header, the report contract and the non-JSON error handling all landed only on `main-v2`. If `master` is dead, delete the branch and its workflow triggers so it cannot be published from by accident. | branch hygiene | 2 h |
 
 ### Long Term (1–3 months)
 
@@ -2659,7 +2772,7 @@ Jaberah.Tests/          AuthorizationFilterTests.cs, CleaningLogRulesTests.cs,
 Jaberah/Properties/launchSettings.json, PublishProfiles/site14114-WebDeploy.pubxml
 ```
 
-**`Jaberah-Flutter` — all 73 `.dart` files plus platform configuration.** Read in full:
+**`Jaberah-Flutter` — reviewed on `master` @ `7eaf11d` in the first pass, then re-verified against the production branch `main-v2` @ `1bb83b0` in revision 2.** `master` is a strict ancestor of `main-v2` (23 commits behind, nothing unique), so the first pass covered a subset of production code; revision 2 diffed the two branches in full (102 files, +9,238/−3,153) and re-checked every client-side finding, the Android and CI configuration, `lib/api/`, and the six controllers new to `main-v2` (`user/cleaningLogController.dart`, `user/dailyPrayersController.dart`, `user/mySalaryController.dart`, `user/prayersStudentsReportsController.dart`, `admin/cleaningLogReportController.dart`, `admin/prayersMonthlyReportController.dart`, `admin/monthlyPartialExamReportController.dart`). The new screens consume endpoints already covered by SEC-002 and SEC-011 and introduced no finding of their own. Files read in full (paths as on `master`; re-read on `main-v2` where changed):
 
 ```
 lib/api/            Dio.dart, URLs.dart
@@ -2686,14 +2799,18 @@ android/            app/build.gradle, app/src/main/AndroidManifest.xml,
 
 This audit was static. The following could not be established from the repositories and are called out where they affect a finding's confidence:
 
-1. **No running instance was tested.** No request was sent to `https://jaberah.runasp.net`. Every reproduction in this report is derived from source and is presented as a procedure to run, not as an observed result. Findings marked "Confidence: High" are high because the defect is unambiguous in code, not because it was executed.
+1. **No running instance was tested.** No request was sent to `https://jaberah-new.tryasp.net`. Every reproduction in this report is derived from source and is presented as a procedure to run, not as an observed result. Findings marked "Confidence: High" are high because the defect is unambiguous in code, not because it was executed.
 2. **No database access.** Row counts, index usage, actual query plans and current log-file size are unknown. This is why PERF-001, PERF-006 and PERF-009 state asymptotic behaviour rather than measured timings, and why no finding claims a specific latency figure.
 3. **No .NET SDK in the audit environment**, so `dotnet build`, `dotnet test` and `dotnet list package --vulnerable` could not be run. Dependency-vulnerability status is therefore recorded under Potential Risks (#6) rather than asserted. No claim in this report depends on compilation.
 4. **EF Core migrations are git-ignored** (`.gitignore:29-30`), so the deployed schema was inferred from `OnModelCreating` and may have drifted from it. Index and constraint claims describe the model configuration.
 5. **`appsettings*.json` is git-ignored,** so the deployed `TokenKey`, `DeployKey`, connection string, Dropbox credentials and CORS allow-list were not seen. SEC-010's impact assessment is explicitly conditional on the deployed key's character set, and SEC-016's severity depends on a runtime check.
 6. **No mobile device or emulator.** SEC-004, SEC-012 and SEC-017 are derived from manifest and Gradle configuration; the reproduction steps were not executed.
 7. **The Firebase project configuration is out of scope** — security rules and App Check settings live in the Firebase console, not in either repository (Potential Risk #7).
-8. **The older `MohamedSaeed-dev/JaberahApp-Server`** (TypeScript, private, last pushed November 2024) is referenced by `lib/api/URLs.dart:3` as `server_node` but is not the active backend (`baseUrl = server_asp`, line 9). It was not audited.
+8. **The older `MohamedSaeed-dev/JaberahApp-Server`** (TypeScript, private, last pushed November 2024) is referenced by `lib/api/URLs.dart:3` as `server_node` but is not the active backend. It was not audited.
+
+11. **Two live deployments exist and only one was in scope.** `URLs.dart` on `main-v2` defines both `server_asp = "https://jaberah.runasp.net/api"` and `newServerASP = "https://jaberah-new.tryasp.net/api"`, with `baseUrl = newServerASP`. Both branch pairs deploy independently — `master` → Server 1, `main-v2` → Server 2 (`Jaberah-ASP/.github/workflows/main.yml:41-59`). This audit covers the `main-v2` pair. Whether Server 1 is still running, still reachable, and still holding a copy of the same production data was not determined; if it is, every server-side finding applies there too, against an older and less-hardened client.
+
+12. **Revision 2 was a differential re-verification, not a fresh audit of `main-v2`.** The server-side findings were unaffected (identical commit), and the client-side findings were each re-checked against the new code. The ~9,200 added client lines were reviewed for security-relevant behaviour — API calls, storage, permissions, authorization assumptions — not line by line for correctness.
 9. **UI code was surveyed rather than read line by line.** The 30 files under `lib/pages/` were checked for API calls, storage writes and permission requests; presentation logic was not reviewed for correctness.
 10. **No load testing.** Concurrency findings (Risk #2) and resource-exhaustion findings (PERF-001, PERF-002) describe mechanisms verified in code; the thresholds at which they become visible were not measured.
 
@@ -2711,7 +2828,7 @@ Priority is a function of severity, exploitability and effort — a one-line fix
 | SEC-005 | High | Security | No password policy; 1-char passwords accepted; 500 on a plausible request | Trivial (4 lines) | **P0** |
 | SEC-010 | Medium | Security | Next key rotation with a non-ASCII key = total auth outage | Trivial (1 word) | **P0** |
 | PERF-002 | High | Performance | Socket exhaustion on the most-called endpoint | Trivial (1 registration) | **P0** |
-| SEC-003 | High | Security | One request exports the entire student body | Low (require `groupId`) | **P0** |
+| SEC-003 | High | Security | Any teacher reaches the admin-only institution-wide export | Low (role-gate the path) | **P0** |
 | SEC-006 | High | Security | Unthrottled credential guessing against 10 known accounts | Low (built-in limiter) | **P0** |
 | PERF-006 | Medium | Performance | Logging silently stops at 1 GiB; O(file) read per admin request | Low (sink options) | **P0** |
 | SEC-004 | High | Security | Trojanised APK installs over the real app as an update | Medium (keystore + CI) | **P1** |
@@ -2722,15 +2839,16 @@ Priority is a function of severity, exploitability and effort — a one-line fix
 | PERF-005 | Medium | Performance | Pagination disableable by caller; two easy 500s | Low (clamp in helper) | **P1** |
 | PERF-004 | Medium | Performance | Any user can poison a shared cache for 30 days | Trivial | **P1** |
 | SEC-008 | Medium | Security | Any teacher hard-deletes any group's books | Low | **P1** |
-| Risk #4 | — | Reliability | Release pipeline publishes nothing while reporting success | Trivial | **P1** |
+| Risk #4 | — | Reliability | *Resolved on `main-v2`*; residual: `curl` lacks `--fail-with-body` | Trivial | **P3** |
 | SEC-009 | Medium | Security | One stolen token = indefinite, unrevocable access | High (token store) | **P2** |
 | SEC-012 | Medium | Security | Student grade reports readable by any app on the device | Medium | **P2** |
 | PERF-003 | Medium | Performance | ~3× peak memory on every response; 100 MB temp files | Medium | **P2** |
 | PERF-007 | Medium | Performance | Admin sees stale group assignments for up to 7 days | Low | **P2** |
 | PERF-008 | Medium | Performance | Double JWT validation + one extra DB query per request | Medium | **P2** |
 | SEC-016 | Low | Security | API contract exposed to any teacher; anonymous exposure one reorder away | Low | **P2** |
-| SEC-017 | Low | Security | Token extractable from a compromised device | Low | **P2** |
+| ~~SEC-017~~ | Low | Security | *Resolved on `main-v2`* — token moved to the encrypted store | — | **Done** |
 | Risk #1 | — | Correctness | `partial-exam/{id}` likely 500s on a serialization cycle | Low | **P2** |
+| Risk #9 | — | Reliability | In-memory cookie jar breaks refresh across app restarts | Low | **P2** |
 | Risk #3 | — | Correctness | Deleting a group orphans its students permanently | Low | **P2** |
 | SEC-015 | Low | Security | Payee can set the admin's "paid" flag; no reversal | Low | **P3** |
 | SEC-018 | Low | Security | Request data on stdout, outside Serilog and its redaction | Trivial | **P3** |
@@ -2746,6 +2864,6 @@ Priority is a function of severity, exploitability and effort — a one-line fix
 
 The engineering foundations here are better than the finding count suggests. The data model is well indexed, soft deletion is applied consistently through a global query filter, the report queries were deliberately written as single round trips, secrets are correctly kept out of configuration, the CORS policy fails closed, error responses do not leak exception detail in production, and the cleaning-logs module — the newest code in the repository — has both correct object-level authorization and unit tests asserting it.
 
-The problem is that those good properties are *local*. Authorization is expressed as attributes on individual actions, so it is present exactly where someone remembered to add it and absent everywhere else; caching invalidation is expressed as three hand-maintained key lists, so it is correct in one controller and incomplete in two; validation is expressed as one filter per DTO, so nine are wired up correctly and the tenth silently does nothing. Fixing the 30 findings in this report matters, but item 26 of the long-term plan matters more: until authorization and validation are enforced in one place per aggregate rather than repeated per endpoint, this class of finding will keep returning with each new feature.
+The problem is that those good properties are *local*. Authorization is expressed as attributes on individual actions, so it is present exactly where someone remembered to add it and absent everywhere else; caching invalidation is expressed as three hand-maintained key lists, so it is correct in one controller and incomplete in two; validation is expressed as one filter per DTO, so nine are wired up correctly and the tenth silently does nothing. Fixing the 29 open findings in this report matters, but item 26 of the long-term plan matters more: until authorization and validation are enforced in one place per aggregate rather than repeated per endpoint, this class of finding will keep returning with each new feature.
 
 *End of report.*
