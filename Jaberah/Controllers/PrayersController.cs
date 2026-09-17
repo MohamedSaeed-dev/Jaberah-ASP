@@ -185,26 +185,32 @@ namespace Jaberah.Controllers
             if (groupId.HasValue)
                 studentsQuery = studentsQuery.Where(s => s.GroupId == groupId);
 
+            // الحصيلة تُحسب في القاعدة لكل الطلاب، ثم يُرتَّبون، ثم تُقتطع الصفحة.
+            // الترتيب بعد الاقتطاع كان يرتّب صفحةً واحدة فحسب، فتأتي الصفحة الأولى
+            // بأصغر المعرّفات لا بأكثر الطلاب صلاةً.
             var students = await studentsQuery
-                .Select(s => new { s.Id, s.Name, GroupName = s.Group != null ? s.Group.Name : null })
-                .OrderBy(s => s.Id)   // تصفيح بلا ترتيب: صفحتان متتاليتان قد تتقاطعان
+                .Select(s => new
+                {
+                    s.Id,
+                    s.Name,
+                    GroupName = s.Group != null ? s.Group.Name : null,
+                    TotalPrayed = s.Attendances.Count(a =>
+                        a.PrayerDate >= start && a.PrayerDate < end && a.RakatsCount > 0),
+                    TotalPrayedRakats = s.Attendances
+                        .Where(a => a.PrayerDate >= start && a.PrayerDate < end)
+                        .Sum(a => (int?)a.RakatsCount) ?? 0,
+                    TotalGroupPrayed = s.Attendances.Count(a =>
+                        a.PrayerDate >= start && a.PrayerDate < end && a.IsInGroup),
+                })
+                // الأكثر صلاةً أولًا، ثم الأكثر ركعاتٍ فالأكثر جماعةً عند التساوي،
+                // والمعرّف فاصلًا أخيرًا حتى لا تتقاطع صفحتان متتاليتان.
+                .OrderByDescending(s => s.TotalPrayed)
+                .ThenByDescending(s => s.TotalPrayedRakats)
+                .ThenByDescending(s => s.TotalGroupPrayed)
+                .ThenBy(s => s.Id)
                 .Skip((skip - 1) * take)
                 .Take(take)
                 .ToListAsync();
-            var studentIds = students.Select(s => s.Id).ToList();
-
-            var attendances = await _db.StudentPrayerAttendances
-                .Where(a =>
-                    a.PrayerDate >= start &&
-                    a.PrayerDate < end &&
-                    studentIds.Contains(a.StudentId))
-                .AsNoTracking()
-                .Select(s => new { s.StudentId, s.PrayerDate, s.RakatsCount, s.IsInGroup })
-                .ToListAsync();
-
-            var groupedByStudent = attendances
-                .GroupBy(a => a.StudentId)
-                .ToDictionary(g => g.Key, g => g.ToList());
 
             var report = new PrayersMonthlyReportDTO
             {
@@ -215,26 +221,15 @@ namespace Jaberah.Controllers
 
             foreach (var student in students)
             {
-                groupedByStudent.TryGetValue(student.Id, out var studentAttendances);
-                studentAttendances ??= [];
-
-                var totalPrayed = studentAttendances.Count(p => p.RakatsCount > 0);
-                var totalGroup = studentAttendances.Count(a => a.IsInGroup);
-                var totalPrayedRakats = studentAttendances.Sum(p => p.RakatsCount);
-
-                var missedPrayers = totalPossibleRakats - totalPrayed;
-
-                var daysGrouped = studentAttendances
-                    .GroupBy(a => a.PrayerDate)
-                    .ToDictionary(g => g.Key, g => g.Count());
+                var missedPrayers = totalPossibleRakats - student.TotalPrayed;
 
                 var totalPercentage = totalPossibleRakats == 0
                     ? 0
-                    : Math.Round((double)totalPrayedRakats * 100 / totalPossibleRakats, 2);
+                    : Math.Round((double)student.TotalPrayedRakats * 100 / totalPossibleRakats, 2);
 
                 var groupPercentage = totalPossibleRakats == 0
                     ? 0
-                    : Math.Round((double)totalGroup * 100 / totalPossibleRakats, 2);
+                    : Math.Round((double)student.TotalGroupPrayed * 100 / totalPossibleRakats, 2);
 
                 var missedPercentage = totalPossibleRakats == 0
                     ? 0
@@ -245,25 +240,18 @@ namespace Jaberah.Controllers
                     StudentId = student.Id,
                     StudentName = student.Name,
                     GroupName = student.GroupName,
-                    TotalPrayed = totalPrayed,
-                    TotalPrayedRakats = totalPrayedRakats,
+                    TotalPrayed = student.TotalPrayed,
+                    TotalPrayedRakats = student.TotalPrayedRakats,
                     TotalPrayedPercentage = totalPercentage,
-                    TotalGroupPrayed = totalGroup,
+                    TotalGroupPrayed = student.TotalGroupPrayed,
                     GroupPercentage = groupPercentage,
                     MissedPrayers = missedPrayers,
                     MissedPercentage = missedPercentage,
                 });
             }
 
-            report.Students = [.. studentStats.OrderBy(s => s.MissedPercentage)];
-
-
-            report.AverageCommitmentPercentage =
-                studentStats.Count == 0
-                    ? 0
-                    : Math.Round(studentStats.Average(s => s.GroupPercentage), 2);
-
-            var totalPossibleAllStudents = totalPossibleRakats * studentStats.Count;
+            // الترتيب محسوم في الاستعلام أعلاه، والقائمة بُنيت على منواله.
+            report.Students = studentStats;
 
             report.AverageCommitmentPercentage =
                 studentStats.Count == 0
